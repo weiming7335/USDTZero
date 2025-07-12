@@ -1,0 +1,50 @@
+server:
+  port: 23456
+  servlet:
+    context-path: /api
+
+spring:
+  datasource:
+    url: jdbc:sqlite:usdtzero.db
+    driver-class-name: org.sqlite.JDBC
+    hikari:
+      maximum-pool-size: 8
+      minimum-idle: 2
+      connection-timeout: 10000
+      idle-timeout: 300000
+      max-lifetime: 900000
+  transaction:
+    default-timeout: 30s
+
+mybatis-plus:
+  mapper-locations: classpath*:/mapper/**/*.xml
+  type-aliases-package: io.qimo.usdtzero.model
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,env,configprops
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: always
+    metrics:
+      enabled: true
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+app:
+  name: USDTZero
+  version: 0.0.1-SNAPSHOT
+  description: Multi-chain USDT payment gateway 

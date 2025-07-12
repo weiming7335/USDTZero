@@ -31,3 +31,17 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Application Specific ###
+# SQLite database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Log files
+logs/
+*.log
+
+# Application properties (if using external config)
+application-*.yml
+application-*.properties
