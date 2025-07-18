@@ -1,23 +1,15 @@
 package io.qimo.usdtzero.config;
 
-import com.zaxxer.hikari.HikariDataSource;
-import io.micrometer.core.instrument.MeterRegistry;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.actuator.health.HealthIndicator;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import javax.sql.DataSource;
-
+/**
+ * 监控配置类
+ * 目前使用默认的Spring Boot Actuator配置
+ * 可以通过application.yml中的management配置进行自定义
+ */
 @Configuration
 public class MonitoringConfig {
-
-    @Autowired
-    private DataSource dataSource;
-
-    @Bean
-    public HealthIndicator databaseHealthIndicator() {
-        return new org.springframework.boot.actuate.health.DataSourceHealthIndicator(
-                (HikariDataSource) dataSource, "SELECT 1");
-    }
+    // 使用Spring Boot默认的监控配置
+    // 可以通过 /actuator/health 访问健康检查
+    // 可以通过 /actuator/metrics 访问系统指标
 } 

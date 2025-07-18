@@ -1,11 +1,8 @@
-server:
-  port: 23456
-  servlet:
-    context-path: /api
-
 spring:
+  profiles:
+    active: dev
   datasource:
-    url: jdbc:sqlite:usdtzero.db
+    url: jdbc:sqlite:${app.sqlite-path:usdtzero.db}
     driver-class-name: org.sqlite.JDBC
     hikari:
       maximum-pool-size: 8
@@ -15,6 +12,9 @@ spring:
       max-lifetime: 900000
   transaction:
     default-timeout: 30s
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
 
 mybatis-plus:
   mapper-locations: classpath*:/mapper/**/*.xml
@@ -46,5 +46,4 @@ management:
 
 app:
   name: USDTZero
-  version: 0.0.1-SNAPSHOT
-  description: Multi-chain USDT payment gateway 
+  version: 0.0.1-SNAPSHOT 

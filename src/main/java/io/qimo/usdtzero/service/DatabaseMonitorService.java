@@ -23,6 +23,15 @@ public class DatabaseMonitorService {
         if (dataSource instanceof HikariDataSource) {
             HikariDataSource hikariDataSource = (HikariDataSource) dataSource;
             
+            // 检查连接池是否已经初始化
+            if (hikariDataSource.getHikariPoolMXBean() == null) {
+                log.info("=== 数据库连接池监控 ===");
+                log.info("连接池正在初始化中...");
+                log.info("最大连接数: {}", hikariDataSource.getMaximumPoolSize());
+                log.info("=========================");
+                return;
+            }
+            
             log.info("=== 数据库连接池监控 ===");
             log.info("活跃连接数: {}", hikariDataSource.getHikariPoolMXBean().getActiveConnections());
             log.info("空闲连接数: {}", hikariDataSource.getHikariPoolMXBean().getIdleConnections());
@@ -39,6 +48,12 @@ public class DatabaseMonitorService {
     public String getPoolStatus() {
         if (dataSource instanceof HikariDataSource) {
             HikariDataSource hikariDataSource = (HikariDataSource) dataSource;
+            
+            // 检查连接池是否已经初始化
+            if (hikariDataSource.getHikariPoolMXBean() == null) {
+                return "连接池正在初始化中...";
+            }
+            
             return String.format(
                 "活跃:%d, 空闲:%d, 总数:%d, 等待:%d",
                 hikariDataSource.getHikariPoolMXBean().getActiveConnections(),

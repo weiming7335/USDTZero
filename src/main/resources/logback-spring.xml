@@ -7,11 +7,11 @@
         </encoder>
     </appender>
 
-    <!-- 文件输出 -->
+    <!-- 文件输出，使用Spring Boot官方变量LOG_FILE，未配置时用默认值 -->
     <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>logs/usdtzero.log</file>
+        <file>${LOG_FILE:-logs/usdtzero.log}</file>
         <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <fileNamePattern>logs/usdtzero.%d{yyyy-MM-dd}.log</fileNamePattern>
+            <fileNamePattern>${LOG_FILE:-logs/usdtzero}.%d{yyyy-MM-dd}.log</fileNamePattern>
             <maxHistory>30</maxHistory>
         </rollingPolicy>
         <encoder>
