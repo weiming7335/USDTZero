@@ -1,6 +1,6 @@
 package io.qimo.usdtzero.util;
 
-import io.qimo.usdtzero.task.UsdtRateTask;
+import io.qimo.usdtzero.service.UsdtRateService;
 
 import java.math.BigDecimal;
 
@@ -37,6 +37,6 @@ public class UsdtRateUtils {
      * 获取最新USDT/CNY汇率，优先用缓存，获取不到直接抛异常
      */
     public static BigDecimal getLatestRate() {
-        return UsdtRateTask.getCachedRate();
+        return UsdtRateService.getCachedRate();
     }
 } 

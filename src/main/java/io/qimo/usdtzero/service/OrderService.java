@@ -27,7 +27,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.UUID;
-import io.qimo.usdtzero.task.UsdtRateTask;
+import io.qimo.usdtzero.service.UsdtRateService;
 
 @Slf4j
 @Service
@@ -50,7 +50,7 @@ public class OrderService {
      * 根据链类型获取收款地址，判断链是否启用
      */
     private String getAddressByChainType(String chainType) {
-        if (StringUtils.isBlank(chainType)) return null;
+        if (StringUtils.isBlank(chainType)) return "";
         switch (chainType.toLowerCase()) {
             case ChainType.TRC20:
                 if (Boolean.FALSE.equals(chainProperties.getTrc20Enable())) {
@@ -77,7 +77,7 @@ public class OrderService {
     /**
      * 创建订单业务
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public CreateOrderResponse createOrder(CreateOrderRequest request) {
         // 1. 校验链类型
         ChainType.validate(request.getChainType());
@@ -91,7 +91,7 @@ public class OrderService {
         }
         // 3. 计算USDT金额（确保精度一致性）
         int usdtScale = payProperties.getUsdtScale();
-        BigDecimal latestRate = UsdtRateTask.getCachedRate(); // 获取最新USDT汇率
+        BigDecimal latestRate = UsdtRateService.getCachedRate(); // 获取最新USDT汇率
         BigDecimal actualRate = UsdtRateUtils.calcActualRate(request.getUsdtRate(), latestRate);
         
         // 计算基础USDT金额（从CNY转换为USDT）
@@ -204,7 +204,7 @@ public class OrderService {
     /**
      * 取消订单业务
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public CancelOrderResponse cancelOrder(CancelOrderRequest request) {
         // 1. 查找订单
         Order order = orderMapper.selectOne(
@@ -218,15 +218,17 @@ public class OrderService {
         if (!OrderStatus.PENDING.equals(order.getStatus())) {
             throw new BizException(ErrorCode.ORDER_CANNOT_CANCEL, "订单不可取消");
         }
-        // 3. 释放金额池
-        amountPoolService.releaseAmount(order.getAddress(), order.getActualAmount());
-        // 4. 更新订单状态
+        // 3. 更新订单状态
         order.setStatus(OrderStatus.CANCELLED);
         order.setUpdateTime(LocalDateTime.now());
         orderMapper.updateById(order);
+
+        // 4. 释放金额池
+        amountPoolService.releaseAmount(order.getAddress(), order.getActualAmount());
         // 5. 返回VO
         CancelOrderResponse vo = new CancelOrderResponse();
         vo.setTradeNo(order.getTradeNo());
+
         return vo;
     }
 

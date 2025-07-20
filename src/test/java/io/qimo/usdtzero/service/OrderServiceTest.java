@@ -7,7 +7,7 @@ import io.qimo.usdtzero.config.ChainProperties;
 import io.qimo.usdtzero.constant.ChainType;
 import io.qimo.usdtzero.model.Order;
 import io.qimo.usdtzero.repository.OrderMapper;
-import io.qimo.usdtzero.task.UsdtRateTask;
+import io.qimo.usdtzero.service.UsdtRateService;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -47,7 +47,7 @@ class OrderServiceTest {
     private OrderMapper orderMapper;
 
     @Mock
-    private UsdtRateTask usdtRateTask;
+    private UsdtRateService usdtRateService;
 
     @InjectMocks
     private OrderService orderService;
@@ -99,7 +99,7 @@ class OrderServiceTest {
     @Test
     void testAmountZeroOrNegativeShouldThrow() {
         // 金额为0.01时，mock依赖
-        UsdtRateTask.setRate(new BigDecimal("7.0"));
+        UsdtRateService.setRate(new BigDecimal("7.0"));
         when(payProperties.getUsdtAtom()).thenReturn("0.01");
         when(payProperties.getUsdtScale()).thenReturn(2);
         when(chainProperties.getSolEnable()).thenReturn(true);
