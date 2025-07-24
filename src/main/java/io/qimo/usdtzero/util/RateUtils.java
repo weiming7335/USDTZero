@@ -1,9 +1,10 @@
 package io.qimo.usdtzero.util;
 
-import io.qimo.usdtzero.service.UsdtRateService;
-
 import java.math.BigDecimal;
 
+/**
+ * USDT汇率工具类
+ */
 public class UsdtRateUtils {
     /**
      * 解析usdtRate字符串，结合最新汇率，计算实际汇率
@@ -33,10 +34,5 @@ public class UsdtRateUtils {
         }
     }
 
-    /**
-     * 获取最新USDT/CNY汇率，优先用缓存，获取不到直接抛异常
-     */
-    public static BigDecimal getLatestRate() {
-        return UsdtRateService.getCachedRate();
-    }
+
 } 
