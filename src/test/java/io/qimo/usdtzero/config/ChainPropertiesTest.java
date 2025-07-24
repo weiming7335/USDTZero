@@ -11,18 +11,18 @@ class ChainPropertiesTest {
         chainProperties.validate();
         
         assertEquals("TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t", chainProperties.getTrc20SmartContract());
-        assertEquals("Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB", chainProperties.getSolSmartContract());
+        assertEquals("Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB", chainProperties.getSplSmartContract());
     }
 
     @Test
     void testEmptySmartContractAddresses() {
         ChainProperties chainProperties = new ChainProperties();
         chainProperties.setTrc20SmartContract("");
-        chainProperties.setSolSmartContract("");
+        chainProperties.setSplSmartContract("");
         chainProperties.validate();
         
         assertEquals("TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t", chainProperties.getTrc20SmartContract());
-        assertEquals("Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB", chainProperties.getSolSmartContract());
+        assertEquals("Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB", chainProperties.getSplSmartContract());
     }
 
     @Test
@@ -30,41 +30,41 @@ class ChainPropertiesTest {
         ChainProperties chainProperties = new ChainProperties();
         chainProperties.validate();
         
-        assertEquals("https://api.trongrid.io", chainProperties.getTrc20Rpc());
-        assertEquals("https://api.mainnet-beta.solana.com", chainProperties.getSolRpc());
+        assertEquals("grpc.trongrid.io", chainProperties.getTrc20Rpc());
+        assertEquals("https://api.mainnet-beta.solana.com", chainProperties.getSplRpc());
     }
 
     @Test
     void testEmptyRpcAddresses() {
         ChainProperties chainProperties = new ChainProperties();
         chainProperties.setTrc20Rpc("");
-        chainProperties.setSolRpc("");
+        chainProperties.setSplRpc("");
         chainProperties.validate();
         
-        assertEquals("https://api.trongrid.io", chainProperties.getTrc20Rpc());
-        assertEquals("https://api.mainnet-beta.solana.com", chainProperties.getSolRpc());
+        assertEquals("grpc.trongrid.io", chainProperties.getTrc20Rpc());
+        assertEquals("https://api.mainnet-beta.solana.com", chainProperties.getSplRpc());
     }
 
     @Test
     void testNullRpcAddresses() {
         ChainProperties chainProperties = new ChainProperties();
         chainProperties.setTrc20Rpc(null);
-        chainProperties.setSolRpc(null);
+        chainProperties.setSplRpc(null);
         chainProperties.validate();
         
-        assertEquals("https://api.trongrid.io", chainProperties.getTrc20Rpc());
-        assertEquals("https://api.mainnet-beta.solana.com", chainProperties.getSolRpc());
+        assertEquals("grpc.trongrid.io", chainProperties.getTrc20Rpc());
+        assertEquals("https://api.mainnet-beta.solana.com", chainProperties.getSplRpc());
     }
 
     @Test
     void testCustomRpcAddresses() {
         ChainProperties chainProperties = new ChainProperties();
         chainProperties.setTrc20Rpc("https://custom-trc20-rpc.com");
-        chainProperties.setSolRpc("https://custom-solana-rpc.com");
+        chainProperties.setSplRpc("https://custom-solana-rpc.com");
         chainProperties.validate();
         
         assertEquals("https://custom-trc20-rpc.com", chainProperties.getTrc20Rpc());
-        assertEquals("https://custom-solana-rpc.com", chainProperties.getSolRpc());
+        assertEquals("https://custom-solana-rpc.com", chainProperties.getSplRpc());
     }
 
     @Test
@@ -73,18 +73,18 @@ class ChainPropertiesTest {
         chainProperties.validate();
         
         assertFalse(chainProperties.getTrc20Enable());
-        assertFalse(chainProperties.getSolEnable());
+        assertFalse(chainProperties.getSplEnable());
     }
 
     @Test
     void testNullEnableValues() {
         ChainProperties chainProperties = new ChainProperties();
         chainProperties.setTrc20Enable(null);
-        chainProperties.setSolEnable(null);
+        chainProperties.setSplEnable(null);
         chainProperties.validate();
         
         assertFalse(chainProperties.getTrc20Enable());
-        assertFalse(chainProperties.getSolEnable());
+        assertFalse(chainProperties.getSplEnable());
     }
 
 

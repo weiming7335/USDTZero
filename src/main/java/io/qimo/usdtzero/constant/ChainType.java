@@ -6,12 +6,13 @@ import java.util.Set;
 
 public class ChainType {
     public static final String TRC20 = "trc20";
-    public static final String SOL = "sol";
+    public static final String SPL = "spl";
+    public static final String BEP20 = "bep20";
     // 可扩展更多链类型
 
     // 所有有效的链类型集合
     private static final Set<String> VALID_CHAIN_TYPES = new HashSet<>(Arrays.asList(
-            TRC20, SOL
+            TRC20,  SPL, BEP20
     ));
     
     /**
@@ -58,8 +59,10 @@ public class ChainType {
         validate(chainType);
         if (TRC20.equalsIgnoreCase(chainType)) {
             return 1_000_000L;
-        } else if (SOL.equalsIgnoreCase(chainType)) {
+        } else if (SPL.equalsIgnoreCase(chainType)) {
             return 1_000_000L; // Solana主流USDT合约同样6位精度
+        } else if (BEP20.equalsIgnoreCase(chainType)) {
+            return 1_000_000L; // BSC主流USDT合约18位精度。
         }
         // 其他链类型可在此扩展
         throw new IllegalArgumentException("不支持的链类型: " + chainType);

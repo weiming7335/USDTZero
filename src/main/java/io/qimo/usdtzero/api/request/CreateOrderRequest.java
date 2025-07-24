@@ -26,6 +26,6 @@ public class CreateOrderRequest {
     @JsonProperty("redirect_url")
     private String redirectUrl;
     private Integer timeout;
-    @JsonProperty("usdt_rate")
-    private String usdtRate;
+    @JsonProperty("rate")
+    private String rate;
 } 

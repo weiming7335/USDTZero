@@ -4,7 +4,7 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 import java.math.BigDecimal;
@@ -15,17 +15,17 @@ import io.qimo.usdtzero.model.BizException;
 import io.qimo.usdtzero.model.ErrorCode;
 
 @Slf4j
-@Component
+@Service
 public class UsdtRateService {
-    private static final Cache<String, BigDecimal> RATE_CACHE = Caffeine.newBuilder()
-            .expireAfterWrite(10, TimeUnit.SECONDS) // 缓存1分钟
+    private final Cache<String, BigDecimal> rateCache = Caffeine.newBuilder()
+            .expireAfterWrite(10, TimeUnit.SECONDS) // 缓存10秒
             .build();
     private static final String CACHE_KEY = "USDT_CNY";
     private static final String COINGECKO_API = "https://api.coingecko.com/api/v3/simple/price?ids=tether&vs_currencies=cny";
     private static final String OKX_C2C_API = "https://www.okx.com/v3/c2c/tradingOrders/books?quoteCurrency=cny&baseCurrency=usdt&side=sell&userType=certified&limit=10";
     
     // 线程同步锁，防止并发调用外部API
-    private static final ReentrantLock rateLock = new ReentrantLock();
+    private final ReentrantLock rateLock = new ReentrantLock();
     
     @Autowired
     private RestTemplate restTemplate;
@@ -36,8 +36,8 @@ public class UsdtRateService {
      * 2. 缓存过期时，加锁调用外部API
      * 3. 线程同步，避免并发调用
      */
-    public static BigDecimal getCachedRate() {
-        BigDecimal rate = RATE_CACHE.getIfPresent(CACHE_KEY);
+    public BigDecimal getCachedRate() {
+        BigDecimal rate = rateCache.getIfPresent(CACHE_KEY);
         if (rate != null) {
             return rate;
         }
@@ -46,17 +46,16 @@ public class UsdtRateService {
         rateLock.lock();
         try {
             // 双重检查，防止其他线程已经获取了汇率
-            rate = RATE_CACHE.getIfPresent(CACHE_KEY);
+            rate = rateCache.getIfPresent(CACHE_KEY);
             if (rate != null) {
                 return rate;
             }
             
             // 调用外部API获取汇率
-            UsdtRateService instance = new UsdtRateService();
-            rate = instance.fetchRateWithFallback();
+            rate = fetchRateWithFallback();
             
             if (rate != null) {
-                RATE_CACHE.put(CACHE_KEY, rate);
+                rateCache.put(CACHE_KEY, rate);
                 log.info("已获取并缓存USDT/CNY汇率: {}", rate);
                 return rate;
             } else {
@@ -68,13 +67,13 @@ public class UsdtRateService {
     }
 
     /**
-     * 设置汇率到缓存（用于测试）
+     * 设置汇率到缓存
      */
-    public static void setRate(BigDecimal rate) {
+    public void setRate(BigDecimal rate) {
         if (rate == null) {
-            RATE_CACHE.invalidate(CACHE_KEY);
+            rateCache.invalidate(CACHE_KEY);
         } else {
-            RATE_CACHE.put(CACHE_KEY, rate);
+            rateCache.put(CACHE_KEY, rate);
         }
     }
 

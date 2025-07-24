@@ -29,31 +29,40 @@ class UsdtRateServiceTest {
     @BeforeEach
     void setUp() {
         // 清空缓存，确保测试环境干净
-        UsdtRateService.setRate(null);
+        usdtRateService.setRate(null);
     }
 
     @Test
     void testGetCachedRateSuccess() {
         BigDecimal rate = new BigDecimal("7.25");
-        UsdtRateService.setRate(rate);
-        BigDecimal cached = UsdtRateService.getCachedRate();
+        usdtRateService.setRate(rate);
+        BigDecimal cached = usdtRateService.getCachedRate();
         assertEquals(rate, cached);
     }
 
     @Test
     void testGetCachedRateWhenNull() {
         // 确保缓存为空
-        UsdtRateService.setRate(null);
+        usdtRateService.setRate(null);
         
-        BizException ex = assertThrows(BizException.class, UsdtRateService::getCachedRate);
-        assertEquals(ErrorCode.RATE_CACHE_MISSING, ex.getErrorCode());
-        assertTrue(ex.getMessage().contains("USDT/CNY汇率未获取到"));
+        // 由于懒加载，系统会自动尝试获取汇率
+        // 如果网络正常，会获取到汇率；如果网络异常，会抛出异常
+        try {
+            BigDecimal rate = usdtRateService.getCachedRate();
+            // 如果获取成功，验证汇率合理性
+            assertNotNull(rate);
+            assertTrue(rate.compareTo(BigDecimal.ZERO) > 0);
+            assertTrue(rate.compareTo(new BigDecimal("10")) < 0);
+        } catch (BizException e) {
+            // 网络问题导致的失败是可以接受的
+            assertEquals(ErrorCode.RATE_CACHE_MISSING, e.getErrorCode());
+        }
     }
 
     @Test
     void testConcurrentRateFetch() throws InterruptedException {
         // 清空缓存
-        UsdtRateService.setRate(null);
+        usdtRateService.setRate(null);
         
         int threadCount = 5;
         ExecutorService executor = Executors.newFixedThreadPool(threadCount);
@@ -65,7 +74,7 @@ class UsdtRateServiceTest {
         for (int i = 0; i < threadCount; i++) {
             executor.submit(() -> {
                 try {
-                    BigDecimal rate = UsdtRateService.getCachedRate();
+                    BigDecimal rate = usdtRateService.getCachedRate();
                     if (rate != null) {
                         successCount.incrementAndGet();
                     }
@@ -89,21 +98,21 @@ class UsdtRateServiceTest {
     void testLazyLoadingWithCacheExpiration() throws InterruptedException {
         // 设置一个短期汇率
         BigDecimal initialRate = new BigDecimal("7.25");
-        UsdtRateService.setRate(initialRate);
+        usdtRateService.setRate(initialRate);
         
         // 验证缓存工作正常
-        BigDecimal cached = UsdtRateService.getCachedRate();
+        BigDecimal cached = usdtRateService.getCachedRate();
         assertEquals(initialRate, cached);
         
         // 等待缓存过期（10秒）
         Thread.sleep(11000);
         
         // 清空缓存，模拟过期
-        UsdtRateService.setRate(null);
+        usdtRateService.setRate(null);
         
         // 尝试获取汇率，应该触发懒加载
         try {
-            BigDecimal newRate = UsdtRateService.getCachedRate();
+            BigDecimal newRate = usdtRateService.getCachedRate();
             assertNotNull(newRate);
             assertTrue(newRate.compareTo(BigDecimal.ZERO) > 0);
         } catch (BizException e) {
@@ -116,16 +125,16 @@ class UsdtRateServiceTest {
     void testRateServiceIntegration() {
         try {
             // 清空缓存，确保测试环境干净
-            UsdtRateService.setRate(null);
+            usdtRateService.setRate(null);
             
             // 测试完整的懒加载流程
-            BigDecimal rate = UsdtRateService.getCachedRate();
+            BigDecimal rate = usdtRateService.getCachedRate();
             assertNotNull(rate);
             assertTrue(rate.compareTo(BigDecimal.ZERO) > 0);
             assertTrue(rate.compareTo(new BigDecimal("10")) < 0); // 汇率应该在合理范围内
             
             // 验证缓存是否正常工作
-            BigDecimal cachedRate = UsdtRateService.getCachedRate();
+            BigDecimal cachedRate = usdtRateService.getCachedRate();
             assertEquals(rate, cachedRate);
             
             System.out.println("懒加载集成测试成功，汇率: " + rate);
@@ -141,13 +150,22 @@ class UsdtRateServiceTest {
     void testCacheInvalidation() {
         // 设置汇率
         BigDecimal rate1 = new BigDecimal("7.25");
-        UsdtRateService.setRate(rate1);
-        assertEquals(rate1, UsdtRateService.getCachedRate());
+        usdtRateService.setRate(rate1);
+        assertEquals(rate1, usdtRateService.getCachedRate());
         
         // 设置为null，应该清除缓存
-        UsdtRateService.setRate(null);
+        usdtRateService.setRate(null);
         
-        BizException ex = assertThrows(BizException.class, UsdtRateService::getCachedRate);
-        assertEquals(ErrorCode.RATE_CACHE_MISSING, ex.getErrorCode());
+        // 由于懒加载，系统会自动尝试获取汇率
+        try {
+            BigDecimal rate = usdtRateService.getCachedRate();
+            // 如果获取成功，验证汇率合理性
+            assertNotNull(rate);
+            assertTrue(rate.compareTo(BigDecimal.ZERO) > 0);
+            assertTrue(rate.compareTo(new BigDecimal("10")) < 0);
+        } catch (BizException e) {
+            // 网络问题导致的失败是可以接受的
+            assertEquals(ErrorCode.RATE_CACHE_MISSING, e.getErrorCode());
+        }
     }
 }

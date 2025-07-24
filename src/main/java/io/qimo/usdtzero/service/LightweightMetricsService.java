@@ -24,6 +24,7 @@ public class LightweightMetricsService {
     private final Counter orderCreatedFailedCounter;
     private final Counter paymentReceivedCounter;
     private final Counter blockchainSyncCounter;
+    private final Counter orderCancelledCounter;
     
     // 请求耗时指标
     private final Timer orderProcessingTimer;
@@ -77,6 +78,10 @@ public class LightweightMetricsService {
                 
         this.blockchainSyncCounter = Counter.builder("usdtzero.business.blockchain.sync")
                 .description("区块链同步数")
+                .register(meterRegistry);
+        
+        this.orderCancelledCounter = Counter.builder("usdtzero.business.orders.cancelled")
+                .description("订单取消数")
                 .register(meterRegistry);
         
         // 初始化请求耗时指标
@@ -138,16 +143,14 @@ public class LightweightMetricsService {
     /**
      * 记录业务指标
      */
-    public void recordOrderCreated(String chain, String amount) {
+    public void recordOrderCreated(String tradeNo) {
         orderCreatedCounter.increment();
-        log.info("订单创建 - 链: {}, 金额: {}, 总订单数: {}", 
-                chain, amount, orderCreatedCounter.count());
+        log.info("订单创建 - tradeNo: {}, 总订单数: {}", tradeNo, orderCreatedCounter.count());
     }
 
-    public void recordOrderCreatedFailed(String chain, String amount) {
+    public void recordOrderCreatedFailed(String tradeNo) {
         orderCreatedFailedCounter.increment();
-        log.warn("订单创建失败 - 链: {}, 金额: {}, 总失败数: {}", 
-                chain, amount, orderCreatedFailedCounter.count());
+        log.warn("订单创建失败 - tradeNo: {}, 总失败数: {}", tradeNo, orderCreatedFailedCounter.count());
     }
 
     public void recordPaymentReceived(String chain, String amount) {
@@ -160,6 +163,14 @@ public class LightweightMetricsService {
         blockchainSyncCounter.increment();
         log.info("区块链同步 - 链: {}, 总同步次数: {}", 
                 chain, blockchainSyncCounter.count());
+    }
+
+    /**
+     * 记录订单取消
+     */
+    public void recordOrderCancelled(String tradeNo) {
+        orderCancelledCounter.increment();
+        log.info("订单取消 - tradeNo: {}, 总取消数: {}", tradeNo, orderCancelledCounter.count());
     }
 
     /**

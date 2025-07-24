@@ -16,6 +16,10 @@ public class BotProperties {
     private Long adminId;
     private String token;
     private String groupId;
+    private String hostname;
+    private Integer port;
+    private String username;
+    private String password;
 
     @PostConstruct
     public void validate() {
@@ -31,5 +35,9 @@ public class BotProperties {
         log.info("[BotProperties] adminId={}", adminId);
         log.info("[BotProperties] token={}", token);
         log.info("[BotProperties] groupId={}", groupId);
+        log.info("[BotProperties] hostname={}", hostname);
+        log.info("[BotProperties] port={}", port);
+        log.info("[BotProperties] username={}", username);
+        log.info("[BotProperties] password={}", password);
     }
 } 

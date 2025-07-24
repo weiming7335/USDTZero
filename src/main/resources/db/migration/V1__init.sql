@@ -9,8 +9,8 @@ CREATE TABLE IF NOT EXISTS `trade_order` (
     chain_type TEXT NOT NULL,             -- 链类型
     status TEXT NOT NULL,                 -- 订单状态
     signature TEXT,                       -- 签名
-    usdt_rate TEXT,                       -- 汇率策略
-    usdt_atom TEXT,                       -- USDT最小单位
+    rate TEXT,                            -- 汇率策略
+    scale INTEGER,                        -- 最小单位
     trade_is_confirmed INTEGER DEFAULT 0, -- 是否确认（0/1）
     notify_url TEXT,                      -- 通知URL
     redirect_url TEXT,                    -- 跳转URL
@@ -22,5 +22,6 @@ CREATE TABLE IF NOT EXISTS `trade_order` (
     pay_time DATETIME,                    -- 支付时间
     tx_hash TEXT,                         -- 交易哈希
     notify_status TEXT,                   -- 通知状态
-    update_time DATETIME  -- 更新时间
+    update_time DATETIME,                 -- 更新时间
+    last_notify_time DATETIME             -- 最后通知时间
 ); 

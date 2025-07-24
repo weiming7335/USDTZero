@@ -20,19 +20,21 @@ public class Order {
     private String chainType;
     private String status;
     private String signature;
-    private String usdtRate;        // 汇率策略
-    private String usdtAtom;
+    private String rate;            // 汇率策略
+    private Integer scale;
     private Boolean tradeIsConfirmed;
     private String notifyUrl;
     private String redirectUrl;
     private Integer timeout;
     private String paymentUrl;
-    private Integer notifyCount;
     private LocalDateTime createTime;
     private LocalDateTime expireTime;
     private LocalDateTime payTime;
     private String txHash;
+    private Integer notifyCount;
     private String notifyStatus;
+    private LocalDateTime lastNotifyTime; // 最后通知时间
     private LocalDateTime updateTime;
+
 
 } 

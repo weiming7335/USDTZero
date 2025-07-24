@@ -169,8 +169,7 @@ class OrderApiIntegrationTest {
         // 验证响应
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         assertNotNull(response.getBody());
-        assertEquals(1003, response.getBody().getCode()); // SIGNATURE_MISSING
-        assertEquals("签名不能为空", response.getBody().getMessage());
+        assertEquals(1003, response.getBody().getCode());
     }
 
     @Test

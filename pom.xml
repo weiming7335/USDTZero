@@ -27,7 +27,7 @@
         <url/>
     </scm>
     <properties>
-        <java.version>21</java.version>
+        <java.version>24</java.version>
     </properties>
     <dependencies>
         <!-- Spring Boot Starters -->
@@ -87,6 +87,38 @@
         <dependency>
             <groupId>org.flywaydb</groupId>
             <artifactId>flyway-core</artifactId>
+        </dependency>
+        <!-- Sava Java Solana RPC 官方推荐依赖（升级到 24.19.9） -->
+        <dependency>
+            <groupId>software.sava</groupId>
+            <artifactId>sava-core</artifactId>
+            <version>24.19.10</version>
+        </dependency>
+        <dependency>
+            <groupId>software.sava</groupId>
+            <artifactId>sava-rpc</artifactId>
+            <version>24.19.10</version>
+        </dependency>
+        <dependency>
+            <groupId>io.github.tronprotocol</groupId>
+            <artifactId>trident</artifactId>
+            <version>0.10.0</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.telegram</groupId>
+            <artifactId>telegrambots-longpolling</artifactId>
+            <version>9.0.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.telegram</groupId>
+            <artifactId>telegrambots-client</artifactId>
+            <version>9.0.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.web3j</groupId>
+            <artifactId>core</artifactId>
+            <version>4.14.0</version>
         </dependency>
     </dependencies>
 

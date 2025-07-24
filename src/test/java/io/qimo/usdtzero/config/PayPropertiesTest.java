@@ -48,29 +48,67 @@ class PayPropertiesTest {
         PayProperties payProperties = new PayProperties();
         payProperties.validate();
         
-        assertEquals("0.01", payProperties.getUsdtAtom());
-        assertEquals("~1", payProperties.getUsdtRate());
-        assertEquals(1200, payProperties.getExpireTime());
+        assertEquals("0.01", payProperties.getAtom());
+        assertEquals("~1", payProperties.getRate());
+        assertEquals(1200, payProperties.getTimeout());
         assertTrue(payProperties.getTradeIsConfirmed());  // 默认应该为true
     }
 
     @Test
-    void testUsdtRateWithBlank() {
-        // 测试usdtRate为空的情况
+    void testRateWithBlank() {
+        // 测试rate为空的情况
         PayProperties payProperties = new PayProperties();
-        payProperties.setUsdtRate("");
+        payProperties.setRate("");
         payProperties.validate();
         
-        assertEquals("~1", payProperties.getUsdtRate());
+        assertEquals("~1", payProperties.getRate());
     }
 
     @Test
-    void testUsdtRateWithNull() {
-        // 测试usdtRate为null的情况
+    void testRateWithNull() {
+        // 测试rate为null的情况
         PayProperties payProperties = new PayProperties();
-        payProperties.setUsdtRate(null);
+        payProperties.setRate(null);
         payProperties.validate();
         
-        assertEquals("~1", payProperties.getUsdtRate());
+        assertEquals("~1", payProperties.getRate());
+    }
+
+    @Test
+    void testRateWithValidFormats() {
+        // 测试有效的rate格式
+        String[] validRates = {"~1.02", "~0.97", "+0.3", "-0.2", "~1", "+1", "-1", "~1.5", "+0.05", "-0.05"};
+        
+        for (String validRate : validRates) {
+            PayProperties payProperties = new PayProperties();
+            payProperties.setRate(validRate);
+            assertDoesNotThrow(() -> payProperties.validate(), 
+                "rate格式 " + validRate + " 应该有效");
+        }
+    }
+
+    @Test
+    void testRateWithInvalidFormats() {
+        // 测试无效的rate格式
+        String[] invalidRates = {"1.02", "0.97", "0.3", "0.2", "abc", "~", "+", "-", "~abc", "+abc", "-abc", "1.02~", "0.3+"};
+        
+        for (String invalidRate : invalidRates) {
+            PayProperties payProperties = new PayProperties();
+            payProperties.setRate(invalidRate);
+            IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, 
+                () -> payProperties.validate(), 
+                "rate格式 " + invalidRate + " 应该无效");
+            assertTrue(exception.getMessage().contains("rate 格式不正确"));
+        }
+    }
+
+    @Test
+    void testRateWithEmptyString() {
+        // 测试rate为空字符串的情况，应该使用默认值
+        PayProperties payProperties = new PayProperties();
+        payProperties.setRate("");
+        payProperties.validate();
+        
+        assertEquals("~1", payProperties.getRate());
     }
 } 

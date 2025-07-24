@@ -46,8 +46,8 @@ public class SignatureTestUtils {
         if (dto.getTimeout() != null) {
             params.put("timeout", dto.getTimeout().toString());
         }
-        if (dto.getUsdtRate() != null) {
-            params.put("usdt_rate", dto.getUsdtRate());
+        if (dto.getRate() != null) {
+            params.put("rate", dto.getRate());
         }
         
         return SignUtils.generateSignature(params, TEST_TOKEN);
@@ -78,7 +78,7 @@ public class SignatureTestUtils {
         dto.setNotifyUrl("https://example.com/notify");
         dto.setRedirectUrl("https://example.com/redirect");
         dto.setTimeout(600);
-        dto.setUsdtRate("7.2");
+        dto.setRate("7.2");
         
         // 生成签名
         String signature = generateCreateOrderSignature(dto);
