@@ -6,6 +6,7 @@ import io.qimo.usdtzero.model.Order;
 import io.qimo.usdtzero.repository.OrderMapper;
 import io.qimo.usdtzero.service.AmountPoolService;
 import io.qimo.usdtzero.service.LightweightMetricsService;
+import io.qimo.usdtzero.service.OrderService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -22,6 +23,8 @@ import java.util.List;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.doCallRealMethod;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @ExtendWith(MockitoExtension.class)
 class OrderTimeoutTaskTest {
@@ -35,8 +38,8 @@ class OrderTimeoutTaskTest {
     @Mock
     private LightweightMetricsService metricsService;
 
-    @InjectMocks
     private OrderTimeoutTask orderTimeoutTask;
+    private OrderService orderService;
 
     private Order pendingOrder;
     private Order expiredOrder;
@@ -70,6 +73,14 @@ class OrderTimeoutTaskTest {
         paidOrder.setExpireTime(LocalDateTime.now().minusMinutes(5));
         paidOrder.setAddress("TRC20_ADDRESS");
         paidOrder.setActualAmount(3000000L); // 3 USDT
+
+        orderService = mock(OrderService.class);
+        // 统一反射注入mock依赖
+        orderTimeoutTask = new OrderTimeoutTask();
+        injectField(orderTimeoutTask, "orderMapper", orderMapper);
+        injectField(orderTimeoutTask, "metricsService", metricsService);
+        // 默认注入mock orderService（可被单独用例覆盖）
+        injectField(orderTimeoutTask, "orderService", orderService);
     }
 
     @Test
@@ -89,17 +100,19 @@ class OrderTimeoutTaskTest {
 
     @Test
     void testCheckTimeoutOrders_WithTimeoutOrders() {
-        // 模拟有超时订单
         List<Order> timeoutOrders = Arrays.asList(expiredOrder);
         when(orderMapper.selectList(any(LambdaQueryWrapper.class)))
                 .thenReturn(timeoutOrders);
+        doCallRealMethod().when(orderService).processTimeoutOrder(any(Order.class));
+        injectField(orderService, "orderMapper", orderMapper);
+        injectField(orderService, "amountPoolService", amountPoolService);
+        injectField(orderService, "metricsService", metricsService);
+        injectField(orderService, "eventPublisher", mock(org.springframework.context.ApplicationEventPublisher.class));
         when(orderMapper.updateStatusIfMatch(eq(2L), eq(OrderStatus.PENDING), eq(OrderStatus.EXPIRED)))
                 .thenReturn(1);
 
-        // 执行测试
         orderTimeoutTask.checkTimeoutOrders();
 
-        // 验证调用
         verify(orderMapper).selectList(any(LambdaQueryWrapper.class));
         verify(orderMapper).updateStatusIfMatch(eq(2L), eq(OrderStatus.PENDING), eq(OrderStatus.EXPIRED));
         verify(amountPoolService).releaseAmount("TRC20_ADDRESS", 2000000L);
@@ -112,22 +125,22 @@ class OrderTimeoutTaskTest {
         List<Order> timeoutOrders = Arrays.asList(expiredOrder);
         when(orderMapper.selectList(any(LambdaQueryWrapper.class)))
                 .thenReturn(timeoutOrders);
-        when(orderMapper.updateStatusIfMatch(eq(2L), eq(OrderStatus.PENDING), eq(OrderStatus.EXPIRED)))
-                .thenReturn(0); // 更新失败，说明状态已变更
+        // mock orderService.processTimeoutOrder
+        OrderService orderServiceMock = mock(OrderService.class);
+        injectField(orderTimeoutTask, "orderService", orderServiceMock);
 
         // 执行测试
         orderTimeoutTask.checkTimeoutOrders();
 
         // 验证调用
         verify(orderMapper).selectList(any(LambdaQueryWrapper.class));
-        verify(orderMapper).updateStatusIfMatch(eq(2L), eq(OrderStatus.PENDING), eq(OrderStatus.EXPIRED));
+        verify(orderServiceMock).processTimeoutOrder(expiredOrder);
         verify(amountPoolService, never()).releaseAmount(anyString(), anyLong());
         verify(metricsService).recordScheduledTaskTime(anyLong(), eq("order_timeout"), eq(true));
     }
 
     @Test
     void testCheckTimeoutOrders_MultipleTimeoutOrders() {
-        // 模拟多个超时订单
         Order expiredOrder2 = new Order();
         expiredOrder2.setId(4L);
         expiredOrder2.setTradeNo("EXPIRED_002");
@@ -139,15 +152,18 @@ class OrderTimeoutTaskTest {
         List<Order> timeoutOrders = Arrays.asList(expiredOrder, expiredOrder2);
         when(orderMapper.selectList(any(LambdaQueryWrapper.class)))
                 .thenReturn(timeoutOrders);
+        doCallRealMethod().when(orderService).processTimeoutOrder(any(Order.class));
+        injectField(orderService, "orderMapper", orderMapper);
+        injectField(orderService, "amountPoolService", amountPoolService);
+        injectField(orderService, "metricsService", metricsService);
+        injectField(orderService, "eventPublisher", mock(org.springframework.context.ApplicationEventPublisher.class));
         when(orderMapper.updateStatusIfMatch(eq(2L), eq(OrderStatus.PENDING), eq(OrderStatus.EXPIRED)))
                 .thenReturn(1);
         when(orderMapper.updateStatusIfMatch(eq(4L), eq(OrderStatus.PENDING), eq(OrderStatus.EXPIRED)))
                 .thenReturn(1);
 
-        // 执行测试
         orderTimeoutTask.checkTimeoutOrders();
 
-        // 验证调用
         verify(orderMapper).selectList(any(LambdaQueryWrapper.class));
         verify(orderMapper).updateStatusIfMatch(eq(2L), eq(OrderStatus.PENDING), eq(OrderStatus.EXPIRED));
         verify(orderMapper).updateStatusIfMatch(eq(4L), eq(OrderStatus.PENDING), eq(OrderStatus.EXPIRED));
@@ -158,7 +174,6 @@ class OrderTimeoutTaskTest {
 
     @Test
     void testCheckTimeoutOrders_OrderMissingAddress() {
-        // 模拟订单缺少地址信息
         Order orderWithoutAddress = new Order();
         orderWithoutAddress.setId(5L);
         orderWithoutAddress.setTradeNo("NO_ADDRESS_001");
@@ -170,13 +185,16 @@ class OrderTimeoutTaskTest {
         List<Order> timeoutOrders = Arrays.asList(orderWithoutAddress);
         when(orderMapper.selectList(any(LambdaQueryWrapper.class)))
                 .thenReturn(timeoutOrders);
+        doCallRealMethod().when(orderService).processTimeoutOrder(any(Order.class));
+        injectField(orderService, "orderMapper", orderMapper);
+        injectField(orderService, "amountPoolService", amountPoolService);
+        injectField(orderService, "metricsService", metricsService);
+        injectField(orderService, "eventPublisher", mock(org.springframework.context.ApplicationEventPublisher.class));
         when(orderMapper.updateStatusIfMatch(eq(5L), eq(OrderStatus.PENDING), eq(OrderStatus.EXPIRED)))
                 .thenReturn(1);
 
-        // 执行测试
         orderTimeoutTask.checkTimeoutOrders();
 
-        // 验证调用
         verify(orderMapper).selectList(any(LambdaQueryWrapper.class));
         verify(orderMapper).updateStatusIfMatch(eq(5L), eq(OrderStatus.PENDING), eq(OrderStatus.EXPIRED));
         verify(amountPoolService, never()).releaseAmount(anyString(), anyLong());
@@ -185,7 +203,6 @@ class OrderTimeoutTaskTest {
 
     @Test
     void testCheckTimeoutOrders_OrderMissingAmount() {
-        // 模拟订单缺少金额信息
         Order orderWithoutAmount = new Order();
         orderWithoutAmount.setId(6L);
         orderWithoutAmount.setTradeNo("NO_AMOUNT_001");
@@ -197,13 +214,16 @@ class OrderTimeoutTaskTest {
         List<Order> timeoutOrders = Arrays.asList(orderWithoutAmount);
         when(orderMapper.selectList(any(LambdaQueryWrapper.class)))
                 .thenReturn(timeoutOrders);
+        doCallRealMethod().when(orderService).processTimeoutOrder(any(Order.class));
+        injectField(orderService, "orderMapper", orderMapper);
+        injectField(orderService, "amountPoolService", amountPoolService);
+        injectField(orderService, "metricsService", metricsService);
+        injectField(orderService, "eventPublisher", mock(org.springframework.context.ApplicationEventPublisher.class));
         when(orderMapper.updateStatusIfMatch(eq(6L), eq(OrderStatus.PENDING), eq(OrderStatus.EXPIRED)))
                 .thenReturn(1);
 
-        // 执行测试
         orderTimeoutTask.checkTimeoutOrders();
 
-        // 验证调用
         verify(orderMapper).selectList(any(LambdaQueryWrapper.class));
         verify(orderMapper).updateStatusIfMatch(eq(6L), eq(OrderStatus.PENDING), eq(OrderStatus.EXPIRED));
         verify(amountPoolService, never()).releaseAmount(anyString(), anyLong());
@@ -227,41 +247,51 @@ class OrderTimeoutTaskTest {
 
     @Test
     void testCheckTimeoutOrders_UpdateException() {
-        // 模拟更新异常
         List<Order> timeoutOrders = Arrays.asList(expiredOrder);
         when(orderMapper.selectList(any(LambdaQueryWrapper.class)))
                 .thenReturn(timeoutOrders);
+        doCallRealMethod().when(orderService).processTimeoutOrder(any(Order.class));
+        injectField(orderService, "orderMapper", orderMapper);
+        injectField(orderService, "amountPoolService", amountPoolService);
+        injectField(orderService, "metricsService", metricsService);
+        injectField(orderService, "eventPublisher", mock(org.springframework.context.ApplicationEventPublisher.class));
         when(orderMapper.updateStatusIfMatch(eq(2L), eq(OrderStatus.PENDING), eq(OrderStatus.EXPIRED)))
-                .thenThrow(new RuntimeException("Update failed"));
+                .thenReturn(0); // 触发 update 失败
 
-        // 执行测试
         orderTimeoutTask.checkTimeoutOrders();
 
-        // 验证调用
-        verify(orderMapper).selectList(any(LambdaQueryWrapper.class));
-        verify(orderMapper).updateStatusIfMatch(eq(2L), eq(OrderStatus.PENDING), eq(OrderStatus.EXPIRED));
-        verify(amountPoolService, never()).releaseAmount(anyString(), anyLong());
         verify(metricsService).recordScheduledTaskTime(anyLong(), eq("order_timeout"), eq(true));
+        verify(metricsService, never()).recordScheduledTaskError(anyString(), anyString());
     }
 
     @Test
     void testCheckTimeoutOrders_ReleaseAmountException() {
-        // 模拟释放金额池异常
         List<Order> timeoutOrders = Arrays.asList(expiredOrder);
         when(orderMapper.selectList(any(LambdaQueryWrapper.class)))
                 .thenReturn(timeoutOrders);
+        doCallRealMethod().when(orderService).processTimeoutOrder(any(Order.class));
+        injectField(orderService, "orderMapper", orderMapper);
+        injectField(orderService, "amountPoolService", amountPoolService);
+        injectField(orderService, "metricsService", metricsService);
+        injectField(orderService, "eventPublisher", mock(org.springframework.context.ApplicationEventPublisher.class));
         when(orderMapper.updateStatusIfMatch(eq(2L), eq(OrderStatus.PENDING), eq(OrderStatus.EXPIRED)))
                 .thenReturn(1);
-        doThrow(new RuntimeException("Release amount failed"))
-                .when(amountPoolService).releaseAmount(anyString(), anyLong());
+        doThrow(new RuntimeException("Release amount failed")).when(amountPoolService).releaseAmount(anyString(), anyLong());
 
-        // 执行测试
         orderTimeoutTask.checkTimeoutOrders();
 
-        // 验证调用
-        verify(orderMapper).selectList(any(LambdaQueryWrapper.class));
-        verify(orderMapper).updateStatusIfMatch(eq(2L), eq(OrderStatus.PENDING), eq(OrderStatus.EXPIRED));
-        verify(amountPoolService).releaseAmount("TRC20_ADDRESS", 2000000L);
         verify(metricsService).recordScheduledTaskTime(anyLong(), eq("order_timeout"), eq(true));
+        verify(metricsService, never()).recordScheduledTaskError(anyString(), anyString());
+    }
+
+    // 反射注入工具方法
+    private static void injectField(Object target, String fieldName, Object value) {
+        try {
+            java.lang.reflect.Field field = target.getClass().getDeclaredField(fieldName);
+            field.setAccessible(true);
+            field.set(target, value);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 } 

@@ -8,6 +8,7 @@ import io.qimo.usdtzero.service.LightweightMetricsService;
 import io.qimo.usdtzero.service.OrderService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.tron.trident.core.ApiWrapper;
@@ -38,6 +39,7 @@ import org.tron.trident.utils.Base58Check;
  */
 @Slf4j
 @Component
+@ConditionalOnProperty(value = "chain.trc20-enable", havingValue = "true")
 public class TRC20UsdtTransferListenerTask {
     @Autowired
     private ChainProperties chainProperties;
@@ -121,10 +123,16 @@ public class TRC20UsdtTransferListenerTask {
     public CompletableFuture<Void> parseBlock(long blockNum) {
         Set<String> listenAmount = amountPoolService.getAllLockedAmounts();
         Timer.Sample timer = metricsService.startScheduledTaskTimer();
-
         return CompletableFuture.runAsync(() -> {
-            try {
-                TransactionInfoList txInfoList = tronClient.getTransactionInfoByBlockNum(blockNum);
+                TransactionInfoList txInfoList = null;
+                try {
+                    txInfoList = tronClient.getTransactionInfoByBlockNum(blockNum);
+                    metricsService.incBlockScanSuccess(ChainType.TRC20);
+                } catch (IllegalException e) {
+                    metricsService.incBlockScanFail(ChainType.TRC20);
+                    log.error("TRC20 解析区块{}时发生异常", blockNum, e);
+                    return;
+                }
                 for (TransactionInfo txInfo : txInfoList.getTransactionInfoList()) {
                     String txId = ByteArray.toHexString(txInfo.getId().toByteArray());
                     if (txInfo.getReceipt().getResult() != Transaction.Result.contractResult.SUCCESS) {
@@ -149,19 +157,14 @@ public class TRC20UsdtTransferListenerTask {
                             String from = Base58Check.bytesToBase58(addr1);
                             String to = Base58Check.bytesToBase58(addr2);
                             BigInteger amount = new BigInteger(logItem.getData().toByteArray());
-
                             if (listenAmount.contains(amountPoolService.buildKey(to, amount.longValue()))) {
                                 log.info("TRC20 转账: block={}, from={}, to={}, amount={}, txId={}", blockNum, from, to, amount, txId);
                                 orderService.markOrderAsPaid(to, amount.longValue(), txId);
-                                metricsService.recordPaymentReceived(ChainType.TRC20, amount.toString());
                             }
                         }
                     }
                 }
-            } catch (IllegalException e) {
-                log.error("解析区块{}时发生异常", blockNum, e);
-                throw new RuntimeException(e);
-            }
+
         }).exceptionally(e -> {
             log.warn("解析block={}区块失败: {}", blockNum, e.getMessage());
             metricsService.recordScheduledTaskError("trc20_block_parse", e.getMessage());

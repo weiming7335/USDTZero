@@ -34,11 +34,7 @@ management:
       show-details: always
     metrics:
       enabled: true
-  metrics:
-    export:
-      prometheus:
-        enabled: true
 
 app:
   name: USDTZero
-  version: 0.0.1-SNAPSHOT 
+  version: v1.0.1

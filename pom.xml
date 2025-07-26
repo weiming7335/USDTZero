@@ -10,7 +10,7 @@
     </parent>
     <groupId>io.qimo</groupId>
     <artifactId>USDTZero</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+    <version>v1.0.1</version>
     <name>USDTZero</name>
     <description>USDTZero</description>
     <url/>
@@ -107,7 +107,7 @@
 
         <dependency>
             <groupId>org.telegram</groupId>
-            <artifactId>telegrambots-longpolling</artifactId>
+            <artifactId>telegrambots-springboot-longpolling-starter</artifactId>
             <version>9.0.0</version>
         </dependency>
         <dependency>
@@ -116,9 +116,18 @@
             <version>9.0.0</version>
         </dependency>
         <dependency>
+            <groupId>org.telegram</groupId>
+            <artifactId>telegrambots-abilities</artifactId>
+            <version>9.0.0</version>
+        </dependency>
+        <dependency>
             <groupId>org.web3j</groupId>
             <artifactId>core</artifactId>
             <version>4.14.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-thymeleaf</artifactId>
         </dependency>
     </dependencies>
 

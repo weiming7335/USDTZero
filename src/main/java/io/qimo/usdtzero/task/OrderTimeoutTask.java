@@ -8,6 +8,7 @@ import io.qimo.usdtzero.model.Order;
 import io.qimo.usdtzero.repository.OrderMapper;
 import io.qimo.usdtzero.service.AmountPoolService;
 import io.qimo.usdtzero.service.LightweightMetricsService;
+import io.qimo.usdtzero.service.OrderService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
@@ -30,18 +31,19 @@ public class OrderTimeoutTask {
     private OrderMapper orderMapper;
 
     @Autowired
-    private AmountPoolService amountPoolService;
+    private LightweightMetricsService metricsService;
 
     @Autowired
-    private LightweightMetricsService metricsService;
-    @Autowired
-    private ApplicationEventPublisher eventPublisher;
+    private OrderService orderService;
+
     /**
      * 定时检查超时订单
      * 每秒执行一次
      */
     @Scheduled(fixedRate = 1000)
     public void checkTimeoutOrders() {
+        // 定时任务耗时指标采集
+        io.micrometer.core.instrument.Timer.Sample timer = metricsService.startScheduledTaskTimer();
         log.debug("开始检查超时订单...");
         
         try {
@@ -56,7 +58,7 @@ public class OrderTimeoutTask {
             
             // 处理每个超时订单
             for (Order order : timeoutOrders) {
-                processTimeoutOrder(order);
+                orderService.processTimeoutOrder(order);
             }
             
             // 记录埋点 - 超时订单数量
@@ -65,6 +67,8 @@ public class OrderTimeoutTask {
         } catch (Exception e) {
             log.error("检查超时订单时发生错误", e);
             metricsService.recordScheduledTaskError("order_timeout", e.getMessage());
+        } finally {
+            metricsService.stopScheduledTaskTimer(timer, "order_timeout");
         }
     }
 
@@ -79,39 +83,5 @@ public class OrderTimeoutTask {
                    .lt(Order::getExpireTime, now);
         
         return orderMapper.selectList(queryWrapper);
-    }
-
-    /**
-     * 处理单个超时订单
-     */
-    @Transactional(rollbackFor = Exception.class)
-    public void processTimeoutOrder(Order order) {
-        try {
-            log.info("处理超时订单: {}", order.getTradeNo());
-            
-            // 1. 只有当订单状态仍为PENDING时才更新为EXPIRED
-            int updateResult = orderMapper.updateStatusIfMatch(
-                order.getId(), 
-                OrderStatus.PENDING, 
-                OrderStatus.EXPIRED
-            );
-            
-            if (updateResult == 0) {
-                log.warn("订单 {} 状态已变更，跳过超时处理", order.getTradeNo());
-                return;
-            }
-            
-            // 2. 释放资金池
-            if (order.getAddress() != null && order.getActualAmount() != null) {
-                amountPoolService.releaseAmount(order.getAddress(), order.getActualAmount());
-                log.info("超时订单 {} 资金池释放成功", order.getTradeNo());
-            }
-            // 发送回调通知事件
-            CallbackNotifyMessage notifyMessage = new CallbackNotifyMessage(order.getTradeNo(), OrderStatus.EXPIRED);
-            eventPublisher.publishEvent(new CallbackNotifyEvent(this, notifyMessage));
-            
-        } catch (Exception e) {
-            log.error("处理超时订单 {} 时发生错误: {}", order.getTradeNo(), e.getMessage());
-        }
     }
 } 

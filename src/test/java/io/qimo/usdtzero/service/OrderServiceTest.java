@@ -88,7 +88,6 @@ class OrderServiceTest {
         when(amountPoolService.isAmountAvailable(any(String.class), any(Long.class))).thenReturn(true);
         when(amountPoolService.allocateAmount(any(String.class), any(Long.class))).thenReturn(true);
         when(orderMapper.insert(any(Order.class))).thenReturn(1);
-        when(usdtRateService.getCachedRate()).thenReturn(new BigDecimal("7.0"));
         CreateOrderRequest dto = new CreateOrderRequest();
         dto.setChainType(ChainType.SPL);
         dto.setAmount(new BigDecimal("100.00"));
@@ -108,7 +107,6 @@ class OrderServiceTest {
         when(amountPoolService.isAmountAvailable(any(String.class), any(Long.class))).thenReturn(true);
         when(amountPoolService.allocateAmount(any(String.class), any(Long.class))).thenReturn(true);
         when(orderMapper.insert(any(Order.class))).thenReturn(1);
-        when(usdtRateService.getCachedRate()).thenReturn(new BigDecimal("7.0"));
         BizException ex1 = assertThrows(BizException.class, () -> createOrderWith("0.01", "7.0"));
         assertTrue(ex1.getMessage().contains("usdt金额必须大于0"));
         when(payProperties.getAtom()).thenReturn("0.001");
@@ -124,7 +122,6 @@ class OrderServiceTest {
         when(payProperties.getTimeout()).thenReturn(1800);
         when(chainProperties.getSplEnable()).thenReturn(true);
         when(chainProperties.getSplAddress()).thenReturn("test_sol_address");
-        when(usdtRateService.getCachedRate()).thenReturn(new BigDecimal("7.0"));
         when(amountPoolService.isAmountAvailable(anyString(), anyLong())).thenReturn(true);
         BizException ex1 = assertThrows(BizException.class, () -> createOrderWith("0", "7.0"));
         assertEquals(ErrorCode.AMOUNT_TOO_SMALL, ex1.getErrorCode());
@@ -143,7 +140,6 @@ class OrderServiceTest {
         when(payProperties.getScale()).thenReturn(2);
         when(chainProperties.getSplEnable()).thenReturn(true);
         when(chainProperties.getSplAddress()).thenReturn("test_sol_address");
-        when(usdtRateService.getCachedRate()).thenReturn(new BigDecimal("7.0"));
         when(amountPoolService.isAmountAvailable(any(String.class), any(Long.class))).thenReturn(true);
         when(amountPoolService.allocateAmount(any(String.class), any(Long.class))).thenReturn(false);
         BizException ex = assertThrows(BizException.class, () -> createOrderWith("100", "7.0"));
@@ -200,7 +196,6 @@ class OrderServiceTest {
         when(amountPoolService.isAmountAvailable(any(String.class), any(Long.class))).thenReturn(true);
         when(amountPoolService.allocateAmount(any(String.class), any(Long.class))).thenReturn(true);
         when(orderMapper.insert(any(Order.class))).thenReturn(0); // 保存失败
-        when(usdtRateService.getCachedRate()).thenReturn(new BigDecimal("7.0"));
         assertThrows(BizException.class, () -> createOrderWith("100", "7.0"));
     }
 
@@ -215,7 +210,6 @@ class OrderServiceTest {
         when(amountPoolService.isAmountAvailable(any(String.class), any(Long.class))).thenReturn(true);
         when(amountPoolService.allocateAmount(any(String.class), any(Long.class))).thenReturn(true);
         when(orderMapper.insert(any(Order.class))).thenReturn(1);
-        when(usdtRateService.getCachedRate()).thenReturn(new BigDecimal("7.0"));
         assertDoesNotThrow(() -> createOrderWith("100", "7.0"));
         when(amountPoolService.isAmountAvailable(any(String.class), any(Long.class))).thenReturn(false);
         BizException ex = assertThrows(BizException.class, () -> createOrderWith("100", "7.0"));
@@ -233,7 +227,6 @@ class OrderServiceTest {
         when(amountPoolService.isAmountAvailable(any(String.class), any(Long.class))).thenReturn(false, false, true);
         when(amountPoolService.allocateAmount(any(String.class), any(Long.class))).thenReturn(true);
         when(orderMapper.insert(any(Order.class))).thenReturn(1);
-        when(usdtRateService.getCachedRate()).thenReturn(new BigDecimal("7.0"));
         assertDoesNotThrow(() -> createOrderWith("100", "7.0"));
     }
 
@@ -243,7 +236,6 @@ class OrderServiceTest {
         when(payProperties.getScale()).thenReturn(2);
         when(chainProperties.getSplEnable()).thenReturn(true);
         when(chainProperties.getSplAddress()).thenReturn("test_sol_address");
-        when(usdtRateService.getCachedRate()).thenReturn(new BigDecimal("7.0"));
         final int[] callCount = {0};
         when(amountPoolService.isAmountAvailable(any(String.class), any(Long.class)))
             .thenAnswer(invocation -> {
@@ -291,7 +283,7 @@ class OrderServiceTest {
         orderService.markOrderAsPaid("addr", 100L, "tx123");
         
         verify(amountPoolService, times(1)).releaseAmount("addr", 100L);
-        verify(metricsService, times(1)).recordPaymentReceived(eq(ChainType.TRC20), eq("100"));
+        verify(metricsService, times(1)).recordPaymentReceived(eq(ChainType.TRC20), eq(100L),eq(100L),eq("tradeNo"));
     }
 
     @Test

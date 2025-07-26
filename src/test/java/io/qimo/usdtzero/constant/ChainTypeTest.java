@@ -11,14 +11,14 @@ class ChainTypeTest {
     @Test
     void testIsValid() {
         // 测试有效的链类型
-        assertTrue(ChainType.isValid("trc20"));
         assertTrue(ChainType.isValid("TRC20"));
-        assertTrue(ChainType.isValid("Trc20"));
-        assertTrue(ChainType.isValid("spl"));
         assertTrue(ChainType.isValid("SPL"));
-        assertTrue(ChainType.isValid("Spl"));
+        assertTrue(ChainType.isValid("BEP20"));
         
         // 测试无效的链类型
+        assertFalse(ChainType.isValid("trc20")); // 小写无效
+        assertFalse(ChainType.isValid("spl")); // 小写无效
+        assertFalse(ChainType.isValid("bep20")); // 小写无效
         assertFalse(ChainType.isValid("ethereum"));
         assertFalse(ChainType.isValid("bitcoin"));
         assertFalse(ChainType.isValid(""));
@@ -29,10 +29,9 @@ class ChainTypeTest {
     @Test
     void testValidate() {
         // 测试有效的链类型（不应该抛出异常）
-        assertDoesNotThrow(() -> ChainType.validate("trc20"));
         assertDoesNotThrow(() -> ChainType.validate("TRC20"));
-        assertDoesNotThrow(() -> ChainType.validate("spl"));
         assertDoesNotThrow(() -> ChainType.validate("SPL"));
+        assertDoesNotThrow(() -> ChainType.validate("BEP20"));
         
         // 测试无效的链类型（应该抛出异常）
         IllegalArgumentException exception1 = assertThrows(IllegalArgumentException.class, 
@@ -53,18 +52,22 @@ class ChainTypeTest {
     void testGetValidChainTypesString() {
         String validTypesString = ChainType.getValidChainTypesString();
         
-        assertTrue(validTypesString.contains("trc20"));
-        assertTrue(validTypesString.contains("spl"));
+        assertTrue(validTypesString.contains("TRC20"));
+        assertTrue(validTypesString.contains("SPL"));
+        assertTrue(validTypesString.contains("BEP20"));
         assertTrue(validTypesString.contains(","));
         
-        // 验证格式
-        assertTrue(validTypesString.matches(".*trc20.*spl.*") || validTypesString.matches(".*spl.*trc20.*"));
+        // 验证格式 - 包含所有三种链类型
+        assertTrue(validTypesString.contains("TRC20"));
+        assertTrue(validTypesString.contains("SPL"));
+        assertTrue(validTypesString.contains("BEP20"));
     }
 
     @Test
     void testConstants() {
         // 验证常量值
-        assertEquals("trc20", ChainType.TRC20);
-        assertEquals("spl", ChainType.SPL);
+        assertEquals("TRC20", ChainType.TRC20);
+        assertEquals("SPL", ChainType.SPL);
+        assertEquals("BEP20", ChainType.BEP20);
     }
 } 

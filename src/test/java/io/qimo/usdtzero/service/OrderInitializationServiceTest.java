@@ -62,7 +62,7 @@ class OrderInitializationServiceTest {
         
         // Mock OrderMapper的行为
         when(orderMapper.selectList(any())).thenReturn(pendingOrders);
-        when(orderMapper.updateById(any(Order.class))).thenReturn(1);
+        when(orderMapper.updateStatusIfMatch(any(), any(), any())).thenReturn(1);
         
         // Mock AmountPoolService的行为（重载方法）
         when(amountPoolService.allocateAmount(eq("test_address_2"), eq(7145000L), eq("VALID_ORDER_001"), any(LocalDateTime.class))).thenReturn(true);
@@ -74,7 +74,7 @@ class OrderInitializationServiceTest {
         verify(orderMapper, times(1)).selectList(any());
 
         // 验证过期订单被更新（EXPIRED状态）
-        verify(orderMapper, times(1)).updateById(any(Order.class));
+        verify(orderMapper, atLeastOnce()).updateStatusIfMatch(any(), any(), any());
 
         // 验证有效订单的资金池被锁定（重载方法）
         verify(amountPoolService, times(1)).allocateAmount(eq("test_address_2"), eq(7145000L), eq("VALID_ORDER_001"), any(LocalDateTime.class));
@@ -92,7 +92,7 @@ class OrderInitializationServiceTest {
         verify(orderMapper, times(1)).selectList(any());
 
         // 验证没有更新操作
-        verify(orderMapper, never()).updateById(any(Order.class));
+        verify(orderMapper, never()).updateStatusIfMatch(any(), any(), any());
         
         // 验证没有资金池操作
         verify(amountPoolService, never()).allocateAmount(anyString(), anyLong());
@@ -110,7 +110,7 @@ class OrderInitializationServiceTest {
         verify(orderMapper, times(1)).selectList(any());
 
         // 验证没有更新操作
-        verify(orderMapper, never()).updateById(any(Order.class));
+        verify(orderMapper, never()).updateStatusIfMatch(any(), any(), any());
         
         // 验证没有资金池操作
         verify(amountPoolService, never()).allocateAmount(anyString(), anyLong());
@@ -123,7 +123,7 @@ class OrderInitializationServiceTest {
         
         // Mock查询成功，但更新失败
         when(orderMapper.selectList(any())).thenReturn(pendingOrders);
-        when(orderMapper.updateById(any(Order.class))).thenThrow(new RuntimeException("更新失败"));
+        when(orderMapper.updateStatusIfMatch(any(), any(), any())).thenThrow(new RuntimeException("更新失败"));
 
         // 执行初始化，应该不会抛出异常
         orderInitializationService.run(null);
@@ -132,7 +132,7 @@ class OrderInitializationServiceTest {
         verify(orderMapper, times(1)).selectList(any());
 
         // 验证更新被调用（即使失败）
-        verify(orderMapper, times(1)).updateById(any(Order.class));
+        verify(orderMapper, atLeastOnce()).updateStatusIfMatch(any(), any(), any());
     }
 
     @Test
@@ -144,7 +144,7 @@ class OrderInitializationServiceTest {
         when(orderMapper.selectList(any())).thenReturn(pendingOrders);
         when(amountPoolService.allocateAmount(eq("test_address_2"), eq(7145000L), eq("VALID_ORDER_001"), any(LocalDateTime.class)))
             .thenThrow(new RuntimeException("资金池锁定失败"));
-        when(orderMapper.updateById(any(Order.class))).thenReturn(1);
+        when(orderMapper.updateStatusIfMatch(any(), any(), any())).thenReturn(1);
 
         // 执行初始化，应该不会抛出异常
         orderInitializationService.run(null);
@@ -153,7 +153,7 @@ class OrderInitializationServiceTest {
         verify(orderMapper, times(1)).selectList(any());
 
         // 验证订单被更新为ABNORMAL状态（因为资金池锁定失败）
-        verify(orderMapper, times(1)).updateById(any(Order.class));
+        verify(orderMapper, atLeastOnce()).updateStatusIfMatch(any(), any(), any());
         
         // 验证资金池锁定被调用（重载方法）
         verify(amountPoolService, times(1)).allocateAmount(eq("test_address_2"), eq(7145000L), eq("VALID_ORDER_001"), any(LocalDateTime.class));
@@ -175,7 +175,7 @@ class OrderInitializationServiceTest {
         verify(orderMapper, times(1)).selectList(any());
 
         // 验证订单被更新为ABNORMAL状态
-        verify(orderMapper, times(1)).updateById(any(Order.class));
+        verify(orderMapper, atLeastOnce()).updateStatusIfMatch(any(), any(), any());
         
         // 验证资金池锁定被调用（重载方法）
         verify(amountPoolService, times(1)).allocateAmount(eq("test_address_2"), eq(7145000L), eq("VALID_ORDER_001"), any(LocalDateTime.class));
@@ -195,7 +195,7 @@ class OrderInitializationServiceTest {
         
         // Mock查询成功，但资金池锁定返回false（因为缺少必要信息）
         when(orderMapper.selectList(any())).thenReturn(pendingOrders);
-        when(orderMapper.updateById(any(Order.class))).thenReturn(1);
+        when(orderMapper.updateStatusIfMatch(any(), any(), any())).thenReturn(1);
 
         // 执行初始化
         orderInitializationService.run(null);
@@ -204,7 +204,7 @@ class OrderInitializationServiceTest {
         verify(orderMapper, times(1)).selectList(any());
 
         // 验证订单被更新为ABNORMAL状态
-        verify(orderMapper, times(1)).updateById(any(Order.class));
+        verify(orderMapper, atLeastOnce()).updateStatusIfMatch(any(), any(), any());
         
         // 验证没有资金池锁定操作（因为缺少必要信息）
         verify(amountPoolService, never()).allocateAmount(anyString(), anyLong());

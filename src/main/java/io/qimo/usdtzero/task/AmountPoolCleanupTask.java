@@ -29,6 +29,7 @@ public class AmountPoolCleanupTask {
      */
     @Scheduled(fixedRate = 60000)
     public void cleanupExpiredAmountPool() {
+        io.micrometer.core.instrument.Timer.Sample timer = metricsService.startScheduledTaskTimer();
         int removed = 0;
         LocalDateTime now = LocalDateTime.now();
         try {
@@ -47,6 +48,8 @@ public class AmountPoolCleanupTask {
         } catch (Exception e) {
             metricsService.recordScheduledTaskError("amount_pool_cleanup", e.getMessage());
             log.error("AmountPoolCleanupTask: 清理资金池异常, 已清理 {} 个, 错误: {}", removed, e.getMessage(), e);
+        } finally {
+            metricsService.stopScheduledTaskTimer(timer, "amount_pool_cleanup");
         }
     }
 } 

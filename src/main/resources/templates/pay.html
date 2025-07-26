@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>USDT 支付</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.bootcdn.net/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+</head>
+<body class="bg-gradient-to-br from-gray-100 to-gray-200 min-h-screen h-screen max-h-screen flex items-center justify-center">
+<div class="w-full max-w-md mx-auto bg-white rounded-2xl shadow-2xl h-screen min-h-screen max-h-screen flex flex-col">
+    <!-- 顶部标题区 -->
+    <div class="flex flex-col items-center pt-6 pb-2 px-4 flex-shrink-0">
+        <div class="text-lg sm:text-xl font-bold text-gray-800 w-full text-center">
+            USDT 支付
+            <span class="bg-green-500 text-white rounded px-2 text-xs ml-2 align-middle whitespace-nowrap" th:text="${chain_type}"></span>
+        </div>
+    </div>
+    <!-- 内容区 -->
+    <div class="flex-1 flex flex-col gap-3 px-4 overflow-y-auto">
+        <!-- 订单信息区，所有状态区块顶部都显示 -->
+        <div class="flex justify-between items-end text-gray-500 text-sm font-normal mb-3">
+            <span>转账金额</span>
+            <span class="text-2xl font-extrabold text-pink-600 tracking-wide text-right" id="amount-text" th:text="${actual_amount} + ' USDT'">0 USDT</span>
+        </div>
+        <div class="flex justify-between items-end text-gray-500 text-sm font-normal mb-3">
+            <span>商户订单号</span>
+            <span id="trade-no-text" th:text="${trade_no}"></span>
+        </div>
+        <!-- 待支付区 -->
+        <div id="pending-area" style="display:block">
+
+            <div class="bg-red-100 text-red-600 rounded-lg text-center py-2 mb-3 text-base font-semibold tracking-wider shadow-sm flex-shrink-0">
+                支付倒计时 <span id="timer">00:00</span>
+            </div>
+            <div class="flex flex-col items-center mb-3 flex-shrink-0">
+                <div id="qrcode" class="w-40 h-40 bg-gray-200 rounded-xl mb-2 shadow-inner"></div>
+            </div>
+            <div class="flex flex-col items-center bg-gray-50 rounded-lg px-3 py-2 mb-3 shadow-sm flex-shrink-0">
+                <span class="break-all text-gray-800 text-base font-mono select-all mb-2 text-center" id="address" th:text="${address}"></span>
+                <button class="bg-green-400 hover:bg-green-500 text-white rounded-lg px-6 py-2 text-base font-semibold transition w-full sm:w-auto" onclick="copyAddress()">复制地址</button>
+            </div>
+            <div class="bg-gray-50 rounded-xl p-4 text-sm text-gray-700 leading-relaxed shadow-sm flex-shrink-0">
+                <div class="font-semibold mb-1 text-gray-800">转账说明：</div>
+                <ol class="list-decimal ml-4 space-y-1">
+                    <li>必须使用 <b th:text="${chain_type}"></b> 网络进行转账</li>
+                    <li>转账金额务必与页面金额一致</li>
+                    <li>如有疑问请联系客服</li>
+                </ol>
+            </div>
+        </div>
+        <!-- 已支付区 -->
+        <div id="paid-area" style="display:none">
+            <div class="flex flex-col items-center justify-center py-10">
+                <div class="text-2xl font-bold text-green-600 mb-4">支付成功</div>
+                <div class="text-gray-700 mb-2">感谢您的支付，订单已完成。</div>
+                <!-- 可扩展显示卡密、订单详情等 -->
+            </div>
+        </div>
+        <!-- 超时区 -->
+        <div id="expired-area" style="display:none">
+            <div class="flex flex-col items-center justify-center py-10">
+                <div class="text-2xl font-bold text-red-500 mb-4">订单已超时</div>
+                <div class="text-gray-700 mb-2">本订单已失效，请重新下单。</div>
+            </div>
+        </div>
+        <!-- 已取消区 -->
+        <div id="cancelled-area" style="display:none">
+            <div class="flex flex-col items-center justify-center py-10">
+                <div class="text-2xl font-bold text-gray-400 mb-4">订单已取消</div>
+                <div class="text-gray-700 mb-2">本订单已被取消。</div>
+            </div>
+        </div>
+        <!-- 异常区 -->
+        <div id="abnormal-area" style="display:none">
+            <div class="flex flex-col items-center justify-center py-10">
+                <div class="text-2xl font-bold text-yellow-500 mb-4">订单异常</div>
+                <div class="text-gray-700 mb-2">订单状态异常，请联系客服。</div>
+            </div>
+        </div>
+    </div>
+</div>
+<script th:inline="javascript">
+    // 只保留必要的全局变量
+    var tradeNo = /*[[${trade_no}]]*/ '';
+    var address = /*[[${address}]]*/ '';
+    var leftSeconds = /*[[${timeout}]]*/ 0;
+    var initialAmount = document.getElementById('amount-text') ? document.getElementById('amount-text').innerText : '';
+
+    // 打印初始变量
+    console.log('tradeNo:', tradeNo);
+    console.log('address:', address);
+    console.log('leftSeconds:', leftSeconds);
+
+    // 渲染二维码
+    function renderQrcode(addr) {
+        var qrcodeEl = document.getElementById("qrcode");
+        if (qrcodeEl) {
+            qrcodeEl.innerHTML = '';
+            new QRCode(qrcodeEl, {
+                text: addr,
+                width: 192,
+                height: 192
+            });
+        }
+    }
+
+    // 倒计时
+    var timerInterval = null;
+    function updateTimer() {
+        var timerEl = document.getElementById('timer');
+        if (!timerEl) return;
+        if (leftSeconds <= 0) {
+            timerEl.innerText = '00:00';
+            showArea('EXPIRED');
+            leftSeconds = 0;
+            return;
+        }
+        let min = String(Math.floor(leftSeconds / 60)).padStart(2, '0');
+        let sec = String(leftSeconds % 60).padStart(2, '0');
+        timerEl.innerText = `${min}:${sec}`;
+        leftSeconds--;
+        timerInterval = setTimeout(updateTimer, 1000);
+    }
+
+    // 复制地址
+    function copyAddress() {
+        const addr = document.getElementById('address').innerText;
+        navigator.clipboard.writeText(addr).then(() => {
+            showToast('地址已复制');
+        });
+    }
+
+    // Toast提示
+    function showToast(msg) {
+        let toast = document.createElement('div');
+        toast.innerText = msg;
+        toast.className = 'fixed left-1/2 top-6 -translate-x-1/2 bg-gray-700 text-white px-4 py-2 rounded-lg shadow-lg z-50 text-base animate-fadein';
+        document.body.appendChild(toast);
+        setTimeout(() => {
+            toast.classList.add('opacity-0');
+            setTimeout(() => document.body.removeChild(toast), 400);
+        }, 1200);
+    }
+    // 简单淡入动画
+    const style = document.createElement('style');
+    style.innerHTML = `@keyframes fadein { from { opacity: 0; } to { opacity: 1; } } .animate-fadein { animation: fadein 0.2s; transition: opacity 0.4s; }`;
+    document.head.appendChild(style);
+
+    // 当前显示的状态
+    var currentStatus = null;
+
+    // 状态区块切换和内容渲染
+    function showArea(status, detail) {
+        if (currentStatus === status) return; // 状态未变则不刷新
+        currentStatus = status;
+        ["PENDING", "PAID", "EXPIRED", "CANCELLED", "ABNORMAL"].forEach(function(s) {
+            var el = document.getElementById(s.toLowerCase() + '-area');
+            if (el) el.style.display = (status === s ? 'block' : 'none');
+        });
+        if (status === 'PENDING') {
+            if (detail && typeof detail.timeout === 'number') leftSeconds = detail.timeout;
+            renderQrcode(address);
+            if(timerInterval) clearTimeout(timerInterval);
+            updateTimer();
+        } else {
+            if(timerInterval) clearTimeout(timerInterval);
+        }
+    }
+
+    // 轮询
+    let pollingTimer = null;
+    function startPolling() {
+        if (pollingTimer) return;
+        pollingTimer = setInterval(function() {
+            fetch('/api/v1/order/detail/' + tradeNo)
+                .then(res => {
+                    if (!res.ok) {
+                        showArea('ABNORMAL');
+                        clearInterval(pollingTimer);
+                        pollingTimer = null;
+                        return null;
+                    }
+                    return res.json();
+                })
+                .then(resp => {
+                    if (!resp) return;
+                    console.log('polling resp:', resp);
+                    if (resp.code === 0 && resp.data && resp.data.status) {
+                        showArea(resp.data.status, resp.data);
+                        if (resp.data.status !== 'PENDING') {
+                            clearInterval(pollingTimer);
+                            pollingTimer = null;
+                        }
+                    } else {
+                        showArea('ABNORMAL');
+                        clearInterval(pollingTimer);
+                        pollingTimer = null;
+                    }
+                });
+        }, 3000);
+    }
+
+    // 页面加载
+    document.addEventListener('DOMContentLoaded', function() {
+        var initialStatus = /*[[${status}]]*/ 'PENDING';
+        currentStatus = null; // 初始化
+        console.log('initialStatus=', initialStatus);
+        ["PENDING", "PAID", "EXPIRED", "CANCELLED", "ABNORMAL"].forEach(function(s) {
+            var el = document.getElementById(s.toLowerCase() + '-area');
+            if (el) el.style.display = 'none';
+        });
+        showArea(initialStatus, {
+            actualAmount: initialAmount.replace(' USDT',''),
+            tradeNo: tradeNo,
+            address: address,
+            timeout: leftSeconds
+        });
+        if (initialStatus === 'PENDING') {
+            startPolling();
+        }
+    });
+</script>
+</body>
+</html> 

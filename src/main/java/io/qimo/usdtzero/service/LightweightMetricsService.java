@@ -3,12 +3,20 @@ package io.qimo.usdtzero.service;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
+import io.qimo.usdtzero.constant.ChainType;
+import io.qimo.usdtzero.util.AmountConvertUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.Map;
+import io.qimo.usdtzero.model.DailyStatistics;
+import java.math.BigDecimal;
+import java.time.LocalDate;
 
 @Slf4j
 @Service
@@ -27,7 +35,6 @@ public class LightweightMetricsService {
     private final Counter orderCancelledCounter;
     
     // 请求耗时指标
-    private final Timer orderProcessingTimer;
     private final Timer blockchainQueryTimer;
     private final Timer databaseQueryTimer;
     private final Timer apiResponseTimer;
@@ -37,16 +44,16 @@ public class LightweightMetricsService {
     private final Counter scheduledTaskSuccessCounter;
     private final Counter scheduledTaskErrorCounter;
     private final AtomicLong lastScheduledTaskTime = new AtomicLong(0);
-    
-    // 资源指标
-    private final AtomicLong currentMemoryUsage = new AtomicLong(0);
-    private final AtomicLong currentThreadCount = new AtomicLong(0);
-    private final AtomicLong queueBacklogCount = new AtomicLong(0);
-    
+
     // 异常指标
     private final Counter exceptionCounter;
     private final AtomicLong lastExceptionTime = new AtomicLong(0);
 
+    // 扫块成功/失败计数（区分链）
+    private final Map<String, AtomicLong> blockScanSuccessMap = new ConcurrentHashMap<>();
+    private final Map<String, AtomicLong> blockScanFailMap = new ConcurrentHashMap<>();
+
+    private final Map<String, AtomicLong> amountMap = new ConcurrentHashMap<>();
     @Autowired
     public LightweightMetricsService(MeterRegistry meterRegistry) {
         this.meterRegistry = meterRegistry;
@@ -83,12 +90,7 @@ public class LightweightMetricsService {
         this.orderCancelledCounter = Counter.builder("usdtzero.business.orders.cancelled")
                 .description("订单取消数")
                 .register(meterRegistry);
-        
-        // 初始化请求耗时指标
-        this.orderProcessingTimer = Timer.builder("usdtzero.timing.order.processing")
-                .description("订单处理耗时")
-                .register(meterRegistry);
-                
+
         this.blockchainQueryTimer = Timer.builder("usdtzero.timing.blockchain.query")
                 .description("区块链查询耗时")
                 .register(meterRegistry);
@@ -113,14 +115,12 @@ public class LightweightMetricsService {
         this.scheduledTaskErrorCounter = Counter.builder("usdtzero.scheduled.task.error")
                 .description("定时任务失败数")
                 .register(meterRegistry);
-        
+
         // 初始化异常指标
         this.exceptionCounter = Counter.builder("usdtzero.exceptions.total")
                 .description("异常总数")
                 .register(meterRegistry);
-        
-        // 启动资源监控定时任务
-        startResourceMonitoring();
+
     }
 
     /**
@@ -153,10 +153,13 @@ public class LightweightMetricsService {
         log.warn("订单创建失败 - tradeNo: {}, 总失败数: {}", tradeNo, orderCreatedFailedCounter.count());
     }
 
-    public void recordPaymentReceived(String chain, String amount) {
+    public void recordPaymentReceived(String chain, Long amount, Long actualAmount, String tradeNo) {
         paymentReceivedCounter.increment();
-        log.info("支付接收 - 链: {}, 金额: {}, 总支付数: {}", 
-                chain, amount, paymentReceivedCounter.count());
+        amountMap.computeIfAbsent("CNY", k -> new AtomicLong()).addAndGet(amount);
+        amountMap.computeIfAbsent(chain, k -> new AtomicLong()).addAndGet(actualAmount);
+
+        log.info("支付接收 - 链: {}, 金额: {}, 实际交易金额: {},交易编号:{}, 总支付数: {}",
+                chain, amount,actualAmount,tradeNo, paymentReceivedCounter.count());
     }
 
     public void recordBlockchainSync(String chain) {
@@ -173,27 +176,17 @@ public class LightweightMetricsService {
         log.info("订单取消 - tradeNo: {}, 总取消数: {}", tradeNo, orderCancelledCounter.count());
     }
 
-    /**
-     * 记录请求耗时
-     */
-    public Timer.Sample startOrderProcessingTimer() {
-        return Timer.start(meterRegistry);
-    }
 
-    public void stopOrderProcessingTimer(Timer.Sample sample) {
-        sample.stop(orderProcessingTimer);
-        log.info("订单处理耗时: {}ms", orderProcessingTimer.mean(TimeUnit.MILLISECONDS));
-    }
 
     public void recordBlockchainQueryTime(long timeMs) {
         blockchainQueryTimer.record(timeMs, TimeUnit.MILLISECONDS);
-        log.info("区块链查询耗时: {}ms, 平均耗时: {}ms", 
+        log.info("区块链查询耗时: {}ms, 平均耗时: {}ms",
                 timeMs, blockchainQueryTimer.mean(TimeUnit.MILLISECONDS));
     }
 
     public void recordDatabaseQueryTime(long timeMs) {
         databaseQueryTimer.record(timeMs, TimeUnit.MILLISECONDS);
-        log.info("数据库查询耗时: {}ms, 平均耗时: {}ms", 
+        log.info("数据库查询耗时: {}ms, 平均耗时: {}ms",
                 timeMs, databaseQueryTimer.mean(TimeUnit.MILLISECONDS));
     }
 
@@ -266,84 +259,61 @@ public class LightweightMetricsService {
     }
 
     /**
-     * 更新资源指标
+     * 记录扫块成功（区分链）
      */
-    public void updateResourceMetrics() {
-        Runtime runtime = Runtime.getRuntime();
-        long totalMemory = runtime.totalMemory();
-        long freeMemory = runtime.freeMemory();
-        long usedMemory = totalMemory - freeMemory;
-        
-        currentMemoryUsage.set(usedMemory);
-        currentThreadCount.set(Thread.activeCount());
-        
-        // 检查内存使用率
-        double memoryUsagePercent = (double) usedMemory / runtime.maxMemory() * 100;
-        if (memoryUsagePercent > 80) {
-            log.warn("内存使用率过高: {}%, 已用: {}MB, 最大: {}MB", 
-                    String.format("%.2f", memoryUsagePercent), usedMemory / 1024 / 1024, runtime.maxMemory() / 1024 / 1024);
-        }
-        
-        // 检查线程数
-        if (Thread.activeCount() > 100) {
-            log.warn("线程数过多: {}, 当前活跃线程: {}", Thread.activeCount(), Thread.activeCount());
-        }
-        
-        log.info("资源监控 - 内存使用: {}%, 活跃线程: {}, 队列积压: {}",
-                String.format("%.2f", memoryUsagePercent),  Thread.activeCount(), queueBacklogCount.get());
+    public void incBlockScanSuccess(String chainType) {
+        blockScanSuccessMap.computeIfAbsent(chainType, k -> new AtomicLong()).incrementAndGet();
+    }
+    /**
+     * 记录扫块失败（区分链）
+     */
+    public void incBlockScanFail(String chainType) {
+        blockScanFailMap.computeIfAbsent(chainType, k -> new AtomicLong()).incrementAndGet();
     }
 
     /**
-     * 设置队列积压数
+     * 生成当日统计对象
      */
-    public void setQueueBacklogCount(long count) {
-        queueBacklogCount.set(count);
-        if (count > 100) {
-            log.warn("队列积压严重: {}", count);
-        }
+    public DailyStatistics generateDailyStatistics() {
+        return DailyStatistics.builder()
+                .date(LocalDate.now())
+                .successOrderCount((long) paymentReceivedCounter.count())
+                .totalOrderCount((long) (orderCreatedCounter.count() + orderCreatedFailedCounter.count()))
+                .totalCnyAmount(AmountConvertUtils.calculateCnyFromMinUnit(getPaymentAmount("CNY")))
+                .totalTrc20Amount(AmountConvertUtils.calculateUsdtFromMinUnit(getPaymentAmount(ChainType.TRC20), ChainType.getUsdtUnit(ChainType.TRC20), 2))
+                .totalSplAmount(AmountConvertUtils.calculateUsdtFromMinUnit(getPaymentAmount(ChainType.SPL), ChainType.getUsdtUnit(ChainType.SPL), 2))
+                .totalBep20Amount(AmountConvertUtils.calculateUsdtFromMinUnit(getPaymentAmount(ChainType.BEP20), ChainType.getUsdtUnit(ChainType.BEP20), 2))
+                .trc20FailCount(blockScanFailMap.getOrDefault(ChainType.TRC20, new AtomicLong(0)).get())
+                .trc20SuccessCount(blockScanSuccessMap.getOrDefault(ChainType.TRC20, new AtomicLong(0)).get())
+                .splFailCount(blockScanFailMap.getOrDefault(ChainType.SPL, new AtomicLong(0)).get())
+                .splSuccessCount(blockScanSuccessMap.getOrDefault(ChainType.SPL, new AtomicLong(0)).get())
+                .bep20FailCount(blockScanFailMap.getOrDefault(ChainType.BEP20, new AtomicLong(0)).get())
+                .bep20SuccessCount(blockScanSuccessMap.getOrDefault(ChainType.BEP20, new AtomicLong(0)).get())
+                .currentUsdtRate(BigDecimal.valueOf(7.2)) // 这里可以从汇率服务获取
+                .timestamp(System.currentTimeMillis())
+                .build();
     }
 
     /**
-     * 启动资源监控定时任务
+     * 获取指定链的当日收款金额
      */
-    private void startResourceMonitoring() {
-        Thread monitorThread = new Thread(() -> {
-            while (!Thread.currentThread().isInterrupted()) {
-                try {
-                    updateResourceMetrics();
-                    Thread.sleep(30000); // 每30秒监控一次
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    break;
-                } catch (Exception e) {
-                    log.error("资源监控异常", e);
-                }
-            }
-        }, "resource-monitor");
-        monitorThread.setDaemon(true);
-        monitorThread.start();
+    private long getPaymentAmount(String type) {
+        return amountMap.getOrDefault(type, new AtomicLong(0)).get();
     }
 
-    /**
-     * 获取监控摘要
-     */
-    public String getMetricsSummary() {
-        double successRate = totalRequestsCounter.count() > 0 ? 
-                (successRequestsCounter.count() / totalRequestsCounter.count()) * 100 : 0;
+    @Scheduled(cron = "0 0 0 * * ?") // 每天零点执行
+    public void resetDailyStatistics() {
+        // 清零收款金额统计
+        amountMap.clear();
         
-        double scheduledTaskSuccessRate = (scheduledTaskSuccessCounter.count() + scheduledTaskErrorCounter.count()) > 0 ?
-                (scheduledTaskSuccessCounter.count() / (scheduledTaskSuccessCounter.count() + scheduledTaskErrorCounter.count())) * 100 : 0;
+        // 清零扫块成功/失败计数
+        blockScanSuccessMap.clear();
+        blockScanFailMap.clear();
         
-        return String.format(
-            "请求成功率: %.2f%%, 订单: %.0f(失败: %.0f), 支付: %.0f, 同步: %.0f, 异常: %.0f, 内存使用: %dMB, 定时任务成功率: %.2f%%",
-            successRate,
-            orderCreatedCounter.count(),
-            orderCreatedFailedCounter.count(),
-            paymentReceivedCounter.count(),
-            blockchainSyncCounter.count(),
-            exceptionCounter.count(),
-            currentMemoryUsage.get() / 1024 / 1024,
-            scheduledTaskSuccessRate
-        );
+        // 清零Counter相关指标（通过重置MeterRegistry实现）
+        meterRegistry.clear();
+        
+        log.info("每日统计已清零");
     }
+
 } 

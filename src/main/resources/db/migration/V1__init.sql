@@ -24,4 +24,7 @@ CREATE TABLE IF NOT EXISTS `trade_order` (
     notify_status TEXT,                   -- 通知状态
     update_time DATETIME,                 -- 更新时间
     last_notify_time DATETIME             -- 最后通知时间
-); 
+);
+
+-- 为tx_hash添加索引
+CREATE INDEX IF NOT EXISTS idx_trade_order_tx_hash ON trade_order(tx_hash); 

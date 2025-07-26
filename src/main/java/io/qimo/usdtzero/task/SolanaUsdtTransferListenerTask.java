@@ -7,6 +7,7 @@ import io.qimo.usdtzero.service.AmountPoolService;
 import io.qimo.usdtzero.service.OrderService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -34,6 +35,7 @@ import io.micrometer.core.instrument.Timer;
  */
 @Slf4j
 @Component
+@ConditionalOnProperty(value = "chain.spl-enable", havingValue = "true")
 public class SolanaUsdtTransferListenerTask {
     @Autowired
     private ChainProperties chainProperties;
@@ -58,19 +60,19 @@ public class SolanaUsdtTransferListenerTask {
         this.commitment = payProperties.getTradeIsConfirmed()
             ? Commitment.FINALIZED
             : Commitment.CONFIRMED;
-        log.info("Solana 监听任务启动，当前监听地址数：{}", amountPoolService.getAllLockedAmounts().size());
+        log.info("[SPL] Solana 监听任务启动，当前监听地址数：{}", amountPoolService.getAllLockedAmounts().size());
     }
 
     /**
      * 每1.2秒轮询一次Solana区块，解析USDT转账
      */
-    @Scheduled(fixedRate = 1200)
+    @Scheduled(fixedRate = 1000)
     public void pollSolanaBlocks() {
         Timer.Sample timer = metricsService.startScheduledTaskTimer();
         try {
             Set<String> listenAmount = amountPoolService.getAllLockedAmounts();
             if (listenAmount.isEmpty()) {
-                log.debug("无监听地址，跳过本轮轮询");
+                log.debug("[SPL] 无监听地址，跳过本轮轮询");
                 return;
             }
 
@@ -82,6 +84,12 @@ public class SolanaUsdtTransferListenerTask {
             }
             long[] slots = rpcClient.getBlocks(startSlot, endSlot).join();
             List<CompletableFuture<Void>> futures = new ArrayList<>();
+            
+            // 打印recentScannedSlots中最大的区块和当前slots信息
+            Long maxRecentSlot = recentScannedSlots.isEmpty() ? null : recentScannedSlots.last();
+            log.info("[SPL] 当前状态: recentScannedSlots最大区块={}, 本次扫描slots={}", 
+                maxRecentSlot, Arrays.toString(slots));
+            
             for (long slot : slots) {
                 if (recentScannedSlots.contains(slot)) continue;
                 if (recentScannedSlots.add(slot)) {
@@ -92,9 +100,10 @@ public class SolanaUsdtTransferListenerTask {
                 }
                 lastScannedSlot = slot;
             }
+
             CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
         } catch (Exception e) {
-            log.error("Solana 监听任务异常", e);
+            log.error("[SPL] Solana 监听任务异常", e);
             metricsService.recordScheduledTaskError("solana_block_scan", e.getMessage());
         } finally {
             metricsService.stopScheduledTaskTimer(timer, "solana_block_scan");
@@ -107,21 +116,32 @@ public class SolanaUsdtTransferListenerTask {
     public CompletableFuture<Void> parseBlockForUsdtTransfers(long slot) {
         Set<String> listenAmount = amountPoolService.getAllLockedAmounts();
         Timer.Sample timer = metricsService.startScheduledTaskTimer();
-        return rpcClient.getBlock(slot, BlockTxDetails.full, 0)
+
+        return rpcClient.getBlock(slot, BlockTxDetails.signatures, 0)
             .thenAccept(block -> {
+                metricsService.incBlockScanSuccess(ChainType.SPL);
                 try {
                     if (block == null) return;
                     List<BlockTx> transactions = block.transactions();
                     List<String> sigs = block.signatures();
-                    if (transactions == null || transactions.isEmpty()) return;
-                    log.info("区块 {} 共 {} 个交易", slot, transactions.size());
+                    if (transactions == null || transactions.isEmpty() || sigs == null || sigs.size() != transactions.size()) {
+                        log.warn("[SPL] 区块{}交易数与签名数不一致，跳过处理: txs={}, sigs={}", slot,
+                            transactions == null ? 0 : transactions.size(),
+                            sigs == null ? 0 : sigs.size());
+                        return;
+                    }
+                    log.info("[SPL] 区块 {} 共 {} 个交易", slot, transactions.size());
                     for (int i = 0; i < transactions.size(); i++) {
                         BlockTx tx = transactions.get(i);
+
                         String txid = sigs.get(i);
+                        if (tx.meta() != null && tx.meta().error() != null) {
+                            log.info("交易失败: txid={}, 错误信息={}", txid, tx.meta().error());
+                            continue;
+                        }
                         byte[] data = tx.data();
                         TransactionSkeleton skeleton = TransactionSkeleton.deserializeSkeleton(data);
                         Instruction[] instructions = skeleton.parseLegacyInstructions();
-
                         if (instructions != null) {
                             for (Instruction ix : instructions) {
                                 String programId = ix.programId().publicKey().toBase58();
@@ -129,7 +149,6 @@ public class SolanaUsdtTransferListenerTask {
                                     byte[] ixData = ix.data();
                                     int offset = ix.offset();
                                     int len = ix.len();
-
                                     if (len > 0) {
                                         int instructionType = ixData[offset] & 0xFF;
                                         // 只处理 TransferChecked 指令
@@ -140,18 +159,15 @@ public class SolanaUsdtTransferListenerTask {
                                                 if (mint.equals(chainProperties.getSplSmartContract())) {
                                                     String from = ixAccounts.get(0).publicKey().toBase58();
                                                     String to = ixAccounts.get(2).publicKey().toBase58();
-
                                                     // 解析金额（在指令类型后的8字节）
                                                     long amount = 0;
                                                     for (int j = 0; j < 8; j++) {
                                                         amount |= ((long)(ixData[offset + 1 + j] & 0xFF) << (j * 8));
                                                     }
-
                                                     if (listenAmount.contains(amountPoolService.buildKey(to, amount))) {
-                                                        log.info("USDT转账: block={}, from={}, to={}, amount={}, txId={}", 
+                                                        log.info("[SPL] USDT转账: block={}, from={}, to={}, amount={}, txId={}",
                                                             slot, from, to, amount, txid);
                                                         orderService.markOrderAsPaid(to, amount, txid);
-                                                        metricsService.recordPaymentReceived(ChainType.SPL, String.valueOf(amount));
                                                     }
                                                 }
                                             }
@@ -162,13 +178,13 @@ public class SolanaUsdtTransferListenerTask {
                         }
                     }
                 } catch (Exception e) {
-                    log.error("解析区块{}时发生异常", slot, e);
-                    throw e;
+                    log.error("[SPL] 解析区块{}时发生异常", slot, e);
+                    metricsService.recordScheduledTaskError("solana_block_parse", e.getMessage());
                 }
             })
             .exceptionally(e -> {
-                log.warn("解析slot={}区块失败: {}", slot, e.getMessage());
-                metricsService.recordScheduledTaskError("solana_block_parse", e.getMessage());
+                log.warn("[SPL] 获取slot={}区块失败: {}", slot, e.getMessage());
+                metricsService.incBlockScanFail(ChainType.SPL);
                 return null;
             })
             .whenComplete((result, ex) -> {

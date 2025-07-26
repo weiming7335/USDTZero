@@ -3,6 +3,7 @@ package io.qimo.usdtzero.repository;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import io.qimo.usdtzero.constant.NotifyStatus;
 import io.qimo.usdtzero.model.Order;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
@@ -47,4 +48,5 @@ public interface OrderMapper extends BaseMapper<Order> {
                 .set(Order::getPayTime, payTime)
                 .set(Order::getTxHash, txHash));
     }
+
 } 

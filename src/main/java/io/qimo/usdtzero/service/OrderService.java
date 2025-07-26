@@ -29,9 +29,11 @@ import io.qimo.usdtzero.event.OrderMessage;
 import org.springframework.context.ApplicationEventPublisher;
 import io.qimo.usdtzero.event.CallbackNotifyEvent;
 import io.qimo.usdtzero.event.CallbackNotifyMessage;
+import io.qimo.usdtzero.api.response.OrderDetailResponse;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -61,7 +63,7 @@ public class OrderService {
      */
     private String getAddressByChainType(String chainType) {
         if (StringUtils.isBlank(chainType)) return "";
-        switch (chainType.toLowerCase()) {
+        switch (chainType) {
             case ChainType.TRC20:
                 if (Boolean.FALSE.equals(chainProperties.getTrc20Enable())) {
                     throw new BizException(ErrorCode.CHAIN_NOT_ENABLED, "TRC20链未启用");
@@ -109,8 +111,14 @@ public class OrderService {
         }
         // 3. 计算USDT金额（确保精度一致性）
         int usdtScale = payProperties.getScale();
-        BigDecimal latestRate = usdtRateService.getCachedRate(); // 获取最新USDT汇率
-        BigDecimal actualRate = RateUtils.calcActualRate(request.getRate(), latestRate);
+        BigDecimal actualRate;
+        if (StringUtils.isNotBlank(request.getRate())){
+            actualRate = new BigDecimal(request.getRate());
+        }else{
+            BigDecimal latestRate = usdtRateService.getCachedRate(); // 获取最新USDT汇率
+            actualRate = RateUtils.calcActualRate(payProperties.getRate(), latestRate);
+        }
+
         
         // 计算基础USDT金额（从CNY转换为USDT）
         BigDecimal baseAmount = request.getAmount().divide(actualRate, usdtScale, RoundingMode.HALF_UP);
@@ -169,7 +177,7 @@ public class OrderService {
             order.setChainType(request.getChainType());
             order.setStatus(OrderStatus.PENDING);
             order.setSignature(request.getSignature());
-            order.setRate(request.getRate());
+            order.setRate(String.valueOf(actualRate));
             order.setNotifyUrl(request.getNotifyUrl());
             order.setRedirectUrl(request.getRedirectUrl());
             order.setTimeout(request.getTimeout() != null ? request.getTimeout() : payProperties.getTimeout());
@@ -212,7 +220,6 @@ public class OrderService {
             allocated = false; // 标记需要释放金额池
             // 记录异常
             log.error("订单创建异常，释放金额池 - 地址: {}, 金额: {}", address, actualAmountMinUnit, e);
-            metricsService.recordException(e.getClass().getSimpleName(), e.getMessage());
             metricsService.recordOrderCreatedFailed(tradeNo);
             throw e;
         } finally {
@@ -290,7 +297,7 @@ public class OrderService {
             LocalDateTime payTime = LocalDateTime.now();
             orderMapper.updatePayTimeAndTxHashById(order.getId(), payTime, txHash);
             amountPoolService.releaseAmount(address, actualAmount);
-            metricsService.recordPaymentReceived(order.getChainType(), String.valueOf(actualAmount));
+            metricsService.recordPaymentReceived(order.getChainType(),order.getAmount(), actualAmount, order.getTradeNo());
             log.info("订单支付成功，tradeNo={}, address={}, actualAmount={}, txHash={}",
                 order.getTradeNo(), address, actualAmount, txHash);
             // 发送支付成功事件通知
@@ -328,7 +335,7 @@ public class OrderService {
                 .set(Order::getNotifyStatus, notifyStatus)
                 .set(Order::getLastNotifyTime, lastNotifyTime)
                 .set(Order::getUpdateTime, LocalDateTime.now());
-        orderMapper.update(null, updateWrapper);
+        orderMapper.update(updateWrapper);
     }
 
     /**
@@ -349,17 +356,73 @@ public class OrderService {
     }
 
     /**
-     * 根据订单ID获取订单
+     * 处理单个超时订单
      */
-    public Order getById(Long orderId) {
-        return orderMapper.selectById(orderId);
+    @Transactional(rollbackFor = Exception.class)
+    public void processTimeoutOrder(Order order) {
+        try {
+            log.info("处理超时订单: {}", order.getTradeNo());
+            // 1. 只有当订单状态仍为PENDING时才更新为EXPIRED
+            int updateResult = orderMapper.updateStatusIfMatch(
+                order.getId(),
+                OrderStatus.PENDING,
+                OrderStatus.EXPIRED
+            );
+            if (updateResult == 0) {
+                log.warn("订单 {} 状态已变更，跳过超时处理", order.getTradeNo());
+                return;
+            }
+
+            this.updateOrderNotifyInfo(order.getId(),  0,NotifyStatus.PENDING,null);
+
+            // 2. 释放资金池
+            if (order.getAddress() != null && order.getActualAmount() != null) {
+                amountPoolService.releaseAmount(order.getAddress(), order.getActualAmount());
+                log.info("超时订单 {} 资金池释放成功", order.getTradeNo());
+            }
+            // 发送回调通知事件
+            CallbackNotifyMessage notifyMessage = new CallbackNotifyMessage(order.getTradeNo(), OrderStatus.EXPIRED);
+            eventPublisher.publishEvent(new CallbackNotifyEvent(this, notifyMessage));
+        } catch (Exception e) {
+            log.error("处理超时订单 {} 时发生错误: {}", order.getTradeNo(), e.getMessage());
+        }
     }
 
     /**
      * 根据 tradeNo 获取订单
      */
     public Order getByTradeNo(String tradeNo) {
-        return orderMapper.selectOne(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<Order>()
+        return orderMapper.selectOne(new LambdaQueryWrapper<Order>()
                 .eq(Order::getTradeNo, tradeNo));
+    }
+
+    public Order getByTxHash(String txHash){
+        return orderMapper.selectOne(new LambdaQueryWrapper<Order>()
+                .eq(Order::getTxHash, txHash));
+    }
+
+    /**
+     * 根据tradeNo查询订单详情，返回OrderDetailResponse
+     */
+    public OrderDetailResponse getOrderDetailByTradeNo(String tradeNo) {
+        Order order = getByTradeNo(tradeNo);
+        if (order == null) {
+            throw new BizException(ErrorCode.ORDER_NOT_FOUND, "订单不存在");
+        }
+        OrderDetailResponse resp = new OrderDetailResponse();
+        resp.setTradeNo(order.getTradeNo());
+        resp.setOrderNo(order.getOrderNo());
+        resp.setAmount(AmountConvertUtils.calculateCnyFromMinUnit(order.getAmount()));
+        resp.setActualAmount(AmountConvertUtils.calculateUsdtFromMinUnit(order.getActualAmount(), ChainType.getUsdtUnit(order.getChainType()), order.getScale()));
+        resp.setAddress(order.getAddress());
+        if (order.getExpireTime() != null) {
+            long seconds = Duration.between(LocalDateTime.now(), order.getExpireTime()).getSeconds();
+            resp.setTimeout((int)Math.max(0, seconds));
+        } else {
+            resp.setTimeout(0);
+        }
+        resp.setChainType(order.getChainType());
+        resp.setStatus(order.getStatus());
+        return resp;
     }
 } 

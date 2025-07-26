@@ -49,7 +49,7 @@ public class ChainProperties {
             splRpc = "https://api.mainnet-beta.solana.com";
         }
         if (StringUtils.isBlank(bep20Rpc)) {
-            bep20Rpc = "https://bsc-mainnet.nodereal.io/v1/64a9df0874fb4a93b9d0a3849de012d3";
+            bep20Rpc = "https://bsc-dataseed.bnbchain.org/";
         }
         // 设置默认智能合约地址（如果为空）
         if (StringUtils.isBlank(trc20SmartContract)) {

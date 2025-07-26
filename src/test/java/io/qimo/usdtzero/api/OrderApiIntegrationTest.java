@@ -2,6 +2,7 @@ package io.qimo.usdtzero.api;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.qimo.usdtzero.api.response.CreateOrderResponse;
+import io.qimo.usdtzero.constant.ChainType;
 import io.qimo.usdtzero.model.ApiResponse;
 import io.qimo.usdtzero.model.Order;
 import io.qimo.usdtzero.util.SignUtils;
@@ -18,6 +19,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.ActiveProfiles;
 
+import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -57,10 +59,11 @@ class OrderApiIntegrationTest {
     void testCreateOrderSuccess() {
         // 准备请求数据
         Map<String, Object> requestData = new HashMap<>();
-        requestData.put("address", "TRC20测试地址");
-        requestData.put("chain_type", "TRC20");
+        requestData.put("address", "TTrtQRMxRdr3fNBCz9xQwYQNZNFmcu4srM");
+        requestData.put("chain_type", ChainType.TRC20);
         requestData.put("order_no", "TEST_ORDER_" + System.currentTimeMillis());
-        requestData.put("amount", "100.5");
+        requestData.put("amount", BigDecimal.valueOf(100));
+        requestData.put("timeout", 60);
         requestData.put("signature", generateValidSignature(requestData));
 
         // 设置请求头
@@ -87,7 +90,7 @@ class OrderApiIntegrationTest {
         assertNotNull(order);
         assertEquals(requestData.get("order_no"), order.getOrderNo());
         assertEquals(requestData.get("address"), order.getAddress());
-        assertEquals(requestData.get("amount"), order.getAmount().toString());
+        assertEquals(100, order.getAmount().longValue());
     }
 
     @Test

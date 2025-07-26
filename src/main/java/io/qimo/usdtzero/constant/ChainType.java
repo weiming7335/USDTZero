@@ -5,9 +5,9 @@ import java.util.HashSet;
 import java.util.Set;
 
 public class ChainType {
-    public static final String TRC20 = "trc20";
-    public static final String SPL = "spl";
-    public static final String BEP20 = "bep20";
+    public static final String TRC20 = "TRC20";
+    public static final String SPL = "SPL";
+    public static final String BEP20 = "BEP20";
     // 可扩展更多链类型
 
     // 所有有效的链类型集合
@@ -21,7 +21,7 @@ public class ChainType {
      * @return true 如果链类型有效，false 如果无效
      */
     public static boolean isValid(String chainType) {
-        return chainType != null && VALID_CHAIN_TYPES.contains(chainType.toLowerCase());
+        return chainType != null && VALID_CHAIN_TYPES.contains(chainType);
     }
     
     /**

@@ -20,7 +20,7 @@ public class Order {
     private String chainType;
     private String status;
     private String signature;
-    private String rate;            // 汇率策略
+    private String rate;            // 汇率
     private Integer scale;
     private Boolean tradeIsConfirmed;
     private String notifyUrl;

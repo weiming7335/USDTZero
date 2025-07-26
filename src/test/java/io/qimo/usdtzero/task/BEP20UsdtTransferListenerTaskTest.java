@@ -4,6 +4,7 @@ import io.qimo.usdtzero.UsdtZeroApplication;
 import io.qimo.usdtzero.service.AmountPoolService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -11,6 +12,7 @@ import java.util.concurrent.CompletableFuture;
 import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest(classes = UsdtZeroApplication.class)
+@ConditionalOnProperty(value = "chain.bep20-enable", havingValue = "true")
 class BEP20UsdtTransferListenerTaskTest {
     private static final Logger log = LoggerFactory.getLogger(BEP20UsdtTransferListenerTaskTest.class);
 

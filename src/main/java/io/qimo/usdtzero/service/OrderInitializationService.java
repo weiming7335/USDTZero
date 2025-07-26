@@ -1,7 +1,6 @@
 package io.qimo.usdtzero.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import io.qimo.usdtzero.constant.OrderStatus;
 import io.qimo.usdtzero.model.Order;
 import io.qimo.usdtzero.repository.OrderMapper;
@@ -53,7 +52,7 @@ public class OrderInitializationService implements ApplicationRunner {
                         poolLockedCount++;
                     } else {
                         // 资金池锁定失败，说明异常，更新为异常状态
-                        updateOrderStatus(order, OrderStatus.ABNORMAL);
+                        orderMapper.updateStatusIfMatch(order.getId(), OrderStatus.PENDING, OrderStatus.ABNORMAL);
                         abnormalCount++;
                         log.warn("订单 {} 资金池锁定失败，状态更新为 ABNORMAL", order.getTradeNo());
                     }
@@ -87,7 +86,7 @@ public class OrderInitializationService implements ApplicationRunner {
             // 检查订单是否过期
             if (order.getExpireTime() != null && now.isAfter(order.getExpireTime())) {
                 // 订单已过期，更新状态
-                updateOrderStatus(order, OrderStatus.EXPIRED);
+                orderMapper.updateStatusIfMatch(order.getId(), OrderStatus.PENDING, OrderStatus.EXPIRED);
                 log.info("订单 {} 已过期，状态更新为 EXPIRED", order.getTradeNo());
                 return true;
             } else {
@@ -126,19 +125,6 @@ public class OrderInitializationService implements ApplicationRunner {
         } catch (Exception e) {
             log.error("锁定订单 {} 资金池时发生错误: {}", order.getTradeNo(), e.getMessage());
             return false;
-        }
-    }
-
-    /**
-     * 更新订单状态
-     */
-    private void updateOrderStatus(Order order, String newStatus) {
-        try {
-            order.setStatus(newStatus);
-            order.setUpdateTime(LocalDateTime.now());
-            orderMapper.updateById(order);
-        } catch (Exception e) {
-            log.error("更新订单 {} 状态时发生错误: {}", order.getTradeNo(), e.getMessage());
         }
     }
 } 
