@@ -12,8 +12,10 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import jakarta.annotation.PostConstruct;
+import software.sava.core.accounts.PublicKey;
 import software.sava.core.accounts.meta.AccountMeta;
 import software.sava.core.tx.Instruction;
+import software.sava.core.tx.Transaction;
 import software.sava.core.tx.TransactionSkeleton;
 import software.sava.rpc.json.http.client.SolanaRpcClient;
 import software.sava.rpc.json.http.request.BlockTxDetails;
@@ -54,6 +56,9 @@ public class SolanaUsdtTransferListenerTask {
     private final ConcurrentSkipListSet<Long> recentScannedSlots = new ConcurrentSkipListSet<>();
     private long lastScannedSlot = -1;
     private Commitment commitment;
+
+    private static final String TOKEN_PROGRAM_ID = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
+
     @PostConstruct
     public void init() {
         rpcClient = SolanaRpcClient.createClient(URI.create(chainProperties.getSplRpc()), HttpClient.newHttpClient());
@@ -117,24 +122,16 @@ public class SolanaUsdtTransferListenerTask {
         Set<String> listenAmount = amountPoolService.getAllLockedAmounts();
         Timer.Sample timer = metricsService.startScheduledTaskTimer();
 
-        return rpcClient.getBlock(slot, BlockTxDetails.signatures, 0)
+        return rpcClient.getBlock(slot, BlockTxDetails.full, 0)
             .thenAccept(block -> {
                 metricsService.incBlockScanSuccess(ChainType.SPL);
                 try {
                     if (block == null) return;
                     List<BlockTx> transactions = block.transactions();
-                    List<String> sigs = block.signatures();
-                    if (transactions == null || transactions.isEmpty() || sigs == null || sigs.size() != transactions.size()) {
-                        log.warn("[SPL] 区块{}交易数与签名数不一致，跳过处理: txs={}, sigs={}", slot,
-                            transactions == null ? 0 : transactions.size(),
-                            sigs == null ? 0 : sigs.size());
-                        return;
-                    }
-                    log.info("[SPL] 区块 {} 共 {} 个交易", slot, transactions.size());
-                    for (int i = 0; i < transactions.size(); i++) {
-                        BlockTx tx = transactions.get(i);
 
-                        String txid = sigs.get(i);
+                    log.info("[SPL] 区块 {} 共 {} 个交易", slot, transactions.size());
+                    for (BlockTx tx : transactions) {
+                        String txid = Transaction.getBase58Id(tx.data());
                         if (tx.meta() != null && tx.meta().error() != null) {
                             log.info("交易失败: txid={}, 错误信息={}", txid, tx.meta().error());
                             continue;
@@ -145,7 +142,7 @@ public class SolanaUsdtTransferListenerTask {
                         if (instructions != null) {
                             for (Instruction ix : instructions) {
                                 String programId = ix.programId().publicKey().toBase58();
-                                if (programId.equals("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA")) {
+                                if (programId.equals(TOKEN_PROGRAM_ID)) {
                                     byte[] ixData = ix.data();
                                     int offset = ix.offset();
                                     int len = ix.len();
@@ -162,11 +159,11 @@ public class SolanaUsdtTransferListenerTask {
                                                     // 解析金额（在指令类型后的8字节）
                                                     long amount = 0;
                                                     for (int j = 0; j < 8; j++) {
-                                                        amount |= ((long)(ixData[offset + 1 + j] & 0xFF) << (j * 8));
+                                                        amount |= ((long) (ixData[offset + 1 + j] & 0xFF) << (j * 8));
                                                     }
                                                     if (listenAmount.contains(amountPoolService.buildKey(to, amount))) {
                                                         log.info("[SPL] USDT转账: block={}, from={}, to={}, amount={}, txId={}",
-                                                            slot, from, to, amount, txid);
+                                                                slot, from, to, amount, txid);
                                                         orderService.markOrderAsPaid(to, amount, txid);
                                                     }
                                                 }
@@ -191,4 +188,6 @@ public class SolanaUsdtTransferListenerTask {
                 metricsService.stopScheduledTaskTimer(timer, "solana_block_parse");
             });
     }
-} 
+
+
+}

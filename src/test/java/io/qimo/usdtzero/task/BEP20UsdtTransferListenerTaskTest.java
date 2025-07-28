@@ -25,9 +25,9 @@ class BEP20UsdtTransferListenerTaskTest {
     @Test
     void testParseBlock() {
         // 真实区块号和地址（请替换为实际存在的BEP20 USDT转账区块号和收款地址）
-        long blockNum = 55070104L; // 示例区块号
-        String toAddress = "0x41c456D2FD185d796f33e2Fbf4E1fd3b4Ef64922"; // 示例收款地址
-        long expectedAmount = 20400000L;
+        long blockNum = 59868958L; // 示例区块号
+        String toAddress = "0x72d2989b76d3038f1d15e5fa811fa958aebfebaf"; // 示例收款地址
+        long expectedAmount = 160000L;
 
         try {
             // 资金池分配金额

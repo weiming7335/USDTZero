@@ -76,7 +76,7 @@ public class BEP20UsdtTransferListenerTask {
     /**
      * 每3秒轮询一次BSC区块，解析USDT转账
      */
-    //@Scheduled(fixedRate = 3000)
+    @Scheduled(fixedRate = 3000)
     public void pollBscBlocks() {
         Timer.Sample timer = metricsService.startScheduledTaskTimer();
         try {
@@ -161,7 +161,6 @@ public class BEP20UsdtTransferListenerTask {
                                 // 解析Transfer方法的参数
                                 // 0xa9059cbb + 32字节to地址 + 32字节amount
                                 String toAddressHex = "0x" + input.substring(34, 74); // 去掉前导0
-                                String checksumAddress = org.web3j.crypto.Keys.toChecksumAddress(toAddressHex);
                                 String amountHex = input.substring(74, 138);
 
                                 BigInteger amount = new BigInteger(amountHex, 16);
@@ -169,15 +168,15 @@ public class BEP20UsdtTransferListenerTask {
                                 long usdtAmount = new BigDecimal(amount).divide(new BigDecimal("1000000000000"), 6, java.math.RoundingMode.DOWN).longValue();
                                 
                                 // 检查是否匹配监听地址和金额
-                                if (listenAmount.contains(amountPoolService.buildKey(checksumAddress, usdtAmount))) {
+                                if (listenAmount.contains(amountPoolService.buildKey(toAddressHex, usdtAmount))) {
                                     try {
                                         // 查回执，判断交易是否成功
                                         EthGetTransactionReceipt receiptResp = web3j.ethGetTransactionReceipt(tx.getHash()).send();
                                         Optional<TransactionReceipt> receiptOpt = receiptResp.getTransactionReceipt();
                                         if (receiptOpt.isPresent() && receiptOpt.get().isStatusOK()) {
                                             log.info("[BEP20] USDT转账: block={}, to={}, amount={}, txHash={}", 
-                                                blockNum, checksumAddress, usdtAmount, tx.getHash());
-                                            orderService.markOrderAsPaid(checksumAddress, amount.longValue(), tx.getHash());
+                                                blockNum, toAddressHex, usdtAmount, tx.getHash());
+                                            orderService.markOrderAsPaid(toAddressHex, usdtAmount, tx.getHash());
                                         } else {
                                             log.info("[BEP20] 交易{}回执status!=1，跳过", tx.getHash());
                                         }

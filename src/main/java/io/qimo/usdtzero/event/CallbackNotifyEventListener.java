@@ -46,13 +46,14 @@ public class CallbackNotifyEventListener {
         try {
             // 发送 HTTP POST 回调，只发送 tradeNo 和 notifyType
             CallbackNotifyMessage message = new CallbackNotifyMessage(order.getTradeNo(), event.getMessage().getStatus());
+            log.info("发送回调通知，tradeNo={}, message={}", order.getTradeNo(), message);
             ResponseEntity<String> response = restTemplate.postForEntity(order.getNotifyUrl(), message, String.class);
             if (response.getStatusCode().is2xxSuccessful()) {
                 notifyStatus = NotifyStatus.SUCCESS;
-                log.info("回调通知成功，tradeNo={}, url={}", order.getTradeNo(), order.getNotifyUrl());
+                log.info("回调通知成功，tradeNo={}, url={}, message={}", order.getTradeNo(), order.getNotifyUrl(), message);
             } else {
                 notifyStatus = NotifyStatus.RETRY;
-                log.warn("回调通知失败，tradeNo={}, url={}, code={}", order.getTradeNo(), order.getNotifyUrl(), response.getStatusCodeValue());
+                log.warn("回调通知失败，tradeNo={}, url={}, code={}, message={}", order.getTradeNo(), order.getNotifyUrl(), response.getStatusCodeValue(), message);
             }
         } catch (Exception e) {
             notifyStatus = NotifyStatus.RETRY;

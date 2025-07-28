@@ -26,9 +26,9 @@ class SPLUsdtTransferListenerTaskTest {
     @Test
     void testRealBlockTransfer() {
         // 使用真实的区块号和地址
-        long blockNumber = 396010832L;
+        long blockNumber = 397198213L;
         String toAddress = "45fpPKXsMY9P7QTmJUvTZL9EUt1Dnugn6puN2oNXv85o";
-        long expectedAmount = 1000000L; // 1 USDC = 1000000 micro units
+        long expectedAmount = 720000L; // 1 USDC = 1000000 micro units
 
         try {
             // 分配金额

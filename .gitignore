@@ -45,3 +45,4 @@ logs/
 # Application properties (if using external config)
 application-*.yml
 application-*.properties
+/autotest/
