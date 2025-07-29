@@ -33,7 +33,7 @@ public class CallbackNotifyRetryTask {
     private LightweightMetricsService metricsService;
 
     // 每3秒执行一次
-    @Scheduled(cron = "*/3 * * * * ?")
+    @Scheduled(fixedRate = 3000)
     public void retryFailedNotify() {
         io.micrometer.core.instrument.Timer.Sample timer = metricsService.startScheduledTaskTimer();
         try {

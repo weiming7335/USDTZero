@@ -219,13 +219,14 @@ public class LightweightMetricsService {
      * 停止定时任务计时并记录成功
      */
     public void stopScheduledTaskTimer(Timer.Sample sample, String taskName) {
-        sample.stop(scheduledTaskTimer);
+        long actualTimeNanos = sample.stop(scheduledTaskTimer);
+        long actualTimeMs = TimeUnit.NANOSECONDS.toMillis(actualTimeNanos);
         scheduledTaskSuccessCounter.increment();
         lastScheduledTaskTime.set(System.currentTimeMillis());
         
-        log.info("定时任务完成 - 任务: {}, 耗时: {}ms, 平均耗时: {}ms, 成功次数: {}", 
+        log.info("定时任务完成 - 任务: {}, 实际耗时: {}ms, 平均耗时: {}ms, 成功次数: {}", 
                 taskName, 
-                scheduledTaskTimer.mean(TimeUnit.MILLISECONDS), 
+                actualTimeMs,
                 scheduledTaskTimer.mean(TimeUnit.MILLISECONDS),
                 scheduledTaskSuccessCounter.count());
     }

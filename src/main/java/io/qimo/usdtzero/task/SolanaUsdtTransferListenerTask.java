@@ -69,9 +69,9 @@ public class SolanaUsdtTransferListenerTask {
     }
 
     /**
-     * 每1.2秒轮询一次Solana区块，解析USDT转账
+     * 每3秒轮询一次Solana区块，解析USDT转账
      */
-    @Scheduled(fixedRate = 1000)
+    @Scheduled(fixedRate = 3000)
     public void pollSolanaBlocks() {
         Timer.Sample timer = metricsService.startScheduledTaskTimer();
         try {
@@ -82,7 +82,7 @@ public class SolanaUsdtTransferListenerTask {
             }
 
             long endSlot = rpcClient.getSlot(commitment).join();
-            int maxBacklog = 5;
+            int maxBacklog = 20;
             long startSlot = Math.max(lastScannedSlot + 1, endSlot - maxBacklog + 1);
             if (startSlot > endSlot) {
                 return;
@@ -106,7 +106,9 @@ public class SolanaUsdtTransferListenerTask {
                 lastScannedSlot = slot;
             }
 
-            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+            if (!futures.isEmpty()) {
+                CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+            }
         } catch (Exception e) {
             log.error("[SPL] Solana 监听任务异常", e);
             metricsService.recordScheduledTaskError("solana_block_scan", e.getMessage());
@@ -120,7 +122,6 @@ public class SolanaUsdtTransferListenerTask {
      */
     public CompletableFuture<Void> parseBlockForUsdtTransfers(long slot) {
         Set<String> listenAmount = amountPoolService.getAllLockedAmounts();
-        Timer.Sample timer = metricsService.startScheduledTaskTimer();
 
         return rpcClient.getBlock(slot, BlockTxDetails.full, 0)
             .thenAccept(block -> {
@@ -137,41 +138,69 @@ public class SolanaUsdtTransferListenerTask {
                             continue;
                         }
                         byte[] data = tx.data();
+                        if (data == null || data.length == 0) {
+                            log.debug("[SPL] 交易数据为空，跳过: txid={}", txid);
+                            continue;
+                        }
+                        
+
                         TransactionSkeleton skeleton = TransactionSkeleton.deserializeSkeleton(data);
                         Instruction[] instructions = skeleton.parseLegacyInstructions();
                         if (instructions != null) {
-                            for (Instruction ix : instructions) {
-                                String programId = ix.programId().publicKey().toBase58();
-                                if (programId.equals(TOKEN_PROGRAM_ID)) {
-                                    byte[] ixData = ix.data();
-                                    int offset = ix.offset();
-                                    int len = ix.len();
-                                    if (len > 0) {
-                                        int instructionType = ixData[offset] & 0xFF;
-                                        // 只处理 TransferChecked 指令
-                                        if (instructionType == 12) {  // TransferChecked
-                                            List<AccountMeta> ixAccounts = ix.accounts();
-                                            if (ixAccounts.size() > 2) {
-                                                String mint = ixAccounts.get(1).publicKey().toBase58();
-                                                if (mint.equals(chainProperties.getSplSmartContract())) {
-                                                    String from = ixAccounts.get(0).publicKey().toBase58();
-                                                    String to = ixAccounts.get(2).publicKey().toBase58();
-                                                    // 解析金额（在指令类型后的8字节）
-                                                    long amount = 0;
-                                                    for (int j = 0; j < 8; j++) {
-                                                        amount |= ((long) (ixData[offset + 1 + j] & 0xFF) << (j * 8));
-                                                    }
-                                                    if (listenAmount.contains(amountPoolService.buildKey(to, amount))) {
-                                                        log.info("[SPL] USDT转账: block={}, from={}, to={}, amount={}, txId={}",
-                                                                slot, from, to, amount, txid);
-                                                        orderService.markOrderAsPaid(to, amount, txid);
-                                                    }
+                        for (Instruction ix : instructions) {
+                            if (ix.programId() == null) {
+                                log.debug("[SPL] 指令程序ID为空，跳过");
+                                continue;
+                            }
+
+                            String programId = ix.programId().publicKey().toBase58();
+                            if (programId.equals(TOKEN_PROGRAM_ID)) {
+                                byte[] ixData = ix.data();
+                                int offset = ix.offset();
+                                int len = ix.len();
+
+                                // 验证数据完整性
+                                if (ixData == null || len <= 0 || offset < 0 ||
+                                    offset + len > ixData.length || offset + 9 > ixData.length) {
+                                    log.debug("[SPL] 指令数据不完整，跳过: offset={}, len={}, dataLength={}",
+                                            offset, len, ixData != null ? ixData.length : 0);
+                                    continue;
+                                }
+                                    int instructionType = ixData[offset] & 0xFF;
+                                    // 只处理 TransferChecked 指令
+                                    if (instructionType == 12) {  // TransferChecked
+                                        List<AccountMeta> ixAccounts = ix.accounts();
+                                        if (ixAccounts.size() > 2) {
+                                            // 添加空值检查
+                                            AccountMeta mintAccount = ixAccounts.get(1);
+                                            AccountMeta fromAccount = ixAccounts.get(0);
+                                            AccountMeta toAccount = ixAccounts.get(2);
+
+                                            if (mintAccount == null || fromAccount == null || toAccount == null) {
+                                                log.debug("[SPL] 账户信息不完整，跳过交易: txid={}", txid);
+                                                continue;
+                                            }
+
+                                            String mint = mintAccount.publicKey().toBase58();
+                                            if (mint.equals(chainProperties.getSplSmartContract())) {
+                                                String from = fromAccount.publicKey().toBase58();
+                                                String to = toAccount.publicKey().toBase58();
+                                                // 解析金额（在指令类型后的8字节）
+                                                long amount = 0;
+                                                for (int j = 0; j < 8; j++) {
+                                                    amount |= ((long) (ixData[offset + 1 + j] & 0xFF) << (j * 8));
+                                                }
+                                                if (listenAmount.contains(amountPoolService.buildKey(to, amount))) {
+                                                    log.info("[SPL] USDT转账: block={}, from={}, to={}, amount={}, txId={}",
+                                                            slot, from, to, amount, txid);
+                                                    orderService.markOrderAsPaid(to, amount, txid);
                                                 }
                                             }
                                         }
                                     }
                                 }
                             }
+
                         }
                     }
                 } catch (Exception e) {
@@ -183,9 +212,6 @@ public class SolanaUsdtTransferListenerTask {
                 log.warn("[SPL] 获取slot={}区块失败: {}", slot, e.getMessage());
                 metricsService.incBlockScanFail(ChainType.SPL);
                 return null;
-            })
-            .whenComplete((result, ex) -> {
-                metricsService.stopScheduledTaskTimer(timer, "solana_block_parse");
             });
     }
 

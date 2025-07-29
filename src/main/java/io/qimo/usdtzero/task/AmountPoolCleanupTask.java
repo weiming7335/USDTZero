@@ -41,7 +41,6 @@ public class AmountPoolCleanupTask {
                     removed++;
                 }
             }
-            metricsService.recordScheduledTaskTime(0, "amount_pool_cleanup", true);
             if (removed > 0) {
                 log.info("AmountPoolCleanupTask: 清理过期资金池条目 {} 个", removed);
             }

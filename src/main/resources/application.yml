@@ -2,14 +2,14 @@ spring:
   profiles:
     active: dev
   datasource:
-    url: jdbc:sqlite:${app.sqlite-path:usdtzero.db}
+    url: jdbc:sqlite:${app.sqlite-path:usdtzero.db}?journal_mode=WAL&synchronous=NORMAL&cache_size=5000&temp_store=MEMORY&busy_timeout=15000
     driver-class-name: org.sqlite.JDBC
     hikari:
-      maximum-pool-size: 8
-      minimum-idle: 2
-      connection-timeout: 10000
-      idle-timeout: 300000
-      max-lifetime: 900000
+      maximum-pool-size: 1
+      minimum-idle: 1
+      connection-timeout: 15000
+      idle-timeout: 600000
+      max-lifetime: 1800000
   transaction:
     default-timeout: 30s
   flyway:

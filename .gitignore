@@ -46,3 +46,6 @@ logs/
 application-*.yml
 application-*.properties
 /autotest/
+
+# Data directory
+data/

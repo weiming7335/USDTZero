@@ -61,9 +61,6 @@ public class OrderTimeoutTask {
                 orderService.processTimeoutOrder(order);
             }
             
-            // 记录埋点 - 超时订单数量
-            metricsService.recordScheduledTaskTime(System.currentTimeMillis(), "order_timeout", true);
-            
         } catch (Exception e) {
             log.error("检查超时订单时发生错误", e);
             metricsService.recordScheduledTaskError("order_timeout", e.getMessage());

@@ -108,7 +108,9 @@ public class TRC20UsdtTransferListenerTask {
                 }
                 lastScannedBlock = blockNum;
             }
-            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+            if (!futures.isEmpty()) {
+                CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+            }
         } catch (Exception e) {
             log.error("TRC20 监听任务异常", e);
             metricsService.recordScheduledTaskError("trc20_block_scan", e.getMessage());

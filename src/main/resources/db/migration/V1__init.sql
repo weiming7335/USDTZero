@@ -27,4 +27,10 @@ CREATE TABLE IF NOT EXISTS `trade_order` (
 );
 
 -- 为tx_hash添加索引
-CREATE INDEX IF NOT EXISTS idx_trade_order_tx_hash ON trade_order(tx_hash); 
+CREATE INDEX IF NOT EXISTS idx_trade_order_tx_hash ON trade_order(tx_hash);
+
+-- 为expire_time添加索引
+CREATE INDEX IF NOT EXISTS idx_trade_order_expire_time ON trade_order(expire_time);
+
+-- 为last_notify_time添加索引
+CREATE INDEX IF NOT EXISTS idx_trade_order_last_notify_time ON trade_order(last_notify_time); 

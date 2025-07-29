@@ -51,4 +51,14 @@ public class TelegramBotNotifier {
             log.error("发送Telegram群组消息失败: {}", e.getMessage(), e);
         }
     }
+    
+    /**
+     * 发送项目启动成功通知
+     */
+    @PostConstruct
+    public void sendStartupNotification() {
+        String message = "🚀 USDTZero 项目启动成功！";
+        sendToAdmin(message);
+        sendToGroup(message);
+    }
 } 
