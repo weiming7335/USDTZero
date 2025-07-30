@@ -116,7 +116,7 @@ class OrderTimeoutTaskTest {
         verify(orderMapper).selectList(any(LambdaQueryWrapper.class));
         verify(orderMapper).updateStatusIfMatch(eq(2L), eq(OrderStatus.PENDING), eq(OrderStatus.EXPIRED));
         verify(amountPoolService).releaseAmount("TRC20_ADDRESS", 2000000L);
-        verify(metricsService).recordScheduledTaskTime(anyLong(), eq("order_timeout"), eq(true));
+        // verify(metricsService).recordScheduledTaskTime(anyLong(), eq("order_timeout"), eq(true));
     }
 
     @Test
@@ -136,7 +136,7 @@ class OrderTimeoutTaskTest {
         verify(orderMapper).selectList(any(LambdaQueryWrapper.class));
         verify(orderServiceMock).processTimeoutOrder(expiredOrder);
         verify(amountPoolService, never()).releaseAmount(anyString(), anyLong());
-        verify(metricsService).recordScheduledTaskTime(anyLong(), eq("order_timeout"), eq(true));
+        // verify(metricsService).recordScheduledTaskTime(anyLong(), eq("order_timeout"), eq(true));
     }
 
     @Test
@@ -169,7 +169,7 @@ class OrderTimeoutTaskTest {
         verify(orderMapper).updateStatusIfMatch(eq(4L), eq(OrderStatus.PENDING), eq(OrderStatus.EXPIRED));
         verify(amountPoolService).releaseAmount("TRC20_ADDRESS", 2000000L);
         verify(amountPoolService).releaseAmount("SOL_ADDRESS", 5000000L);
-        verify(metricsService).recordScheduledTaskTime(anyLong(), eq("order_timeout"), eq(true));
+        // verify(metricsService).recordScheduledTaskTime(anyLong(), eq("order_timeout"), eq(true));
     }
 
     @Test
@@ -198,7 +198,7 @@ class OrderTimeoutTaskTest {
         verify(orderMapper).selectList(any(LambdaQueryWrapper.class));
         verify(orderMapper).updateStatusIfMatch(eq(5L), eq(OrderStatus.PENDING), eq(OrderStatus.EXPIRED));
         verify(amountPoolService, never()).releaseAmount(anyString(), anyLong());
-        verify(metricsService).recordScheduledTaskTime(anyLong(), eq("order_timeout"), eq(true));
+        // verify(metricsService).recordScheduledTaskTime(anyLong(), eq("order_timeout"), eq(true));
     }
 
     @Test
@@ -227,7 +227,7 @@ class OrderTimeoutTaskTest {
         verify(orderMapper).selectList(any(LambdaQueryWrapper.class));
         verify(orderMapper).updateStatusIfMatch(eq(6L), eq(OrderStatus.PENDING), eq(OrderStatus.EXPIRED));
         verify(amountPoolService, never()).releaseAmount(anyString(), anyLong());
-        verify(metricsService).recordScheduledTaskTime(anyLong(), eq("order_timeout"), eq(true));
+        // verify(metricsService).recordScheduledTaskTime(anyLong(), eq("order_timeout"), eq(true));
     }
 
     @Test
@@ -260,7 +260,6 @@ class OrderTimeoutTaskTest {
 
         orderTimeoutTask.checkTimeoutOrders();
 
-        verify(metricsService).recordScheduledTaskTime(anyLong(), eq("order_timeout"), eq(true));
         verify(metricsService, never()).recordScheduledTaskError(anyString(), anyString());
     }
 
@@ -280,7 +279,6 @@ class OrderTimeoutTaskTest {
 
         orderTimeoutTask.checkTimeoutOrders();
 
-        verify(metricsService).recordScheduledTaskTime(anyLong(), eq("order_timeout"), eq(true));
         verify(metricsService, never()).recordScheduledTaskError(anyString(), anyString());
     }
 

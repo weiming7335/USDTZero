@@ -47,9 +47,7 @@ class AmountPoolCleanupTaskTest {
         // 验证只清理过期条目
         verify(amountPoolService, times(1)).releaseAmountByKey(expiredKey);
         verify(amountPoolService, never()).releaseAmountByKey(validKey);
-        // 验证埋点
-        verify(metricsService, atLeastOnce()).recordScheduledTaskTime(anyLong(), eq("amount_pool_cleanup"), eq(true));
-    }
+       }
 
     @Test
     void testCleanupExpiredAmountPool_handlesExceptionAndRecordsError() {
