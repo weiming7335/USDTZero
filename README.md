@@ -13,11 +13,11 @@
 
 ## 截图预览
 
-![截图1](docs/images/截屏2025-07-30%2021.20.27.png)
+<img src="docs/images/截屏2025-07-30%2021.20.27.png" width="50%" alt="截图1">
 
-![截图2](docs/images/截屏2025-07-30%2021.26.50.png)
+<img src="docs/images/截屏2025-07-30%2021.26.50.png" width="50%" alt="截图2">
 
-![截图3](docs/images/截屏2025-07-30%2021.27.09.png) 
+<img src="docs/images/截屏2025-07-30%2021.27.09.png" width="50%" alt="截图3"> 
 
 ## API文档
 
