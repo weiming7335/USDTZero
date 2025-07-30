@@ -75,12 +75,6 @@ public class SolanaUsdtTransferListenerTask {
     public void pollSolanaBlocks() {
         Timer.Sample timer = metricsService.startScheduledTaskTimer();
         try {
-            Set<String> listenAmount = amountPoolService.getAllLockedAmounts();
-            if (listenAmount.isEmpty()) {
-                log.debug("[SPL] 无监听地址，跳过本轮轮询");
-                return;
-            }
-
             long endSlot = rpcClient.getSlot(commitment).join();
             int maxBacklog = 20;
             long startSlot = Math.max(lastScannedSlot + 1, endSlot - maxBacklog + 1);

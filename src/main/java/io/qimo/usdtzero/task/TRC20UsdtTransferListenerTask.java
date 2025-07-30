@@ -80,12 +80,6 @@ public class TRC20UsdtTransferListenerTask {
     public void pollTronBlocks() {
         Timer.Sample timer = metricsService.startScheduledTaskTimer();
         try {
-            Set<String> listenAmount = amountPoolService.getAllLockedAmounts();
-            if (listenAmount.isEmpty()) {
-                log.debug("无监听地址，跳过本轮轮询");
-                return;
-            }
-
             BlockExtention latestBlock = tronClient.getNowBlock2(nodeType);
             int maxBacklog = 5;
             long startBlock = Math.max(lastScannedBlock + 1, latestBlock.getBlockHeader().getRawData().getNumber() - maxBacklog + 1);

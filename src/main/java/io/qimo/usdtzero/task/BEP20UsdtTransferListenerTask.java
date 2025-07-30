@@ -80,11 +80,6 @@ public class BEP20UsdtTransferListenerTask {
     public void pollBscBlocks() {
         Timer.Sample timer = metricsService.startScheduledTaskTimer();
         try {
-//            Set<String> listenAmount = amountPoolService.getAllLockedAmounts();
-//            if (listenAmount.isEmpty()) {
-//                log.debug("无监听地址，跳过本轮轮询");
-//                return;
-//            }
             // 根据配置选择 finalized 或 latest 区块
             DefaultBlockParameter blockParam = payProperties.getTradeIsConfirmed()
                     ? DefaultBlockParameterName.FINALIZED

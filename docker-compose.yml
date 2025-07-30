@@ -2,6 +2,7 @@ version: '3.8'
 
 services:
   usdtzero:
+    container_name: usdtzero
     build: .
     ports:
       - "23456:23456"

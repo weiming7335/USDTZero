@@ -43,8 +43,7 @@ logs/
 *.log
 
 # Application properties (if using external config)
-application-*.yml
-application-*.properties
+application-dev.yml
 /autotest/
 
 # Data directory
