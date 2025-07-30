@@ -23,8 +23,8 @@ public class CreateOrderRequest {
     private String signature;
     @JsonProperty("notify_url")
     private String notifyUrl;
-    @JsonProperty("redirect_url")
-    private String redirectUrl;
+//    @JsonProperty("redirect_url")
+//    private String redirectUrl;
     private Integer timeout;
     @JsonProperty("rate")
     private String rate;

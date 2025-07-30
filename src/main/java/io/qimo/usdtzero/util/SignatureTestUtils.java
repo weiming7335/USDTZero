@@ -40,9 +40,6 @@ public class SignatureTestUtils {
         if (dto.getNotifyUrl() != null) {
             params.put("notify_url", dto.getNotifyUrl());
         }
-        if (dto.getRedirectUrl() != null) {
-            params.put("redirect_url", dto.getRedirectUrl());
-        }
         if (dto.getTimeout() != null) {
             params.put("timeout", dto.getTimeout().toString());
         }
@@ -76,7 +73,6 @@ public class SignatureTestUtils {
         dto.setOrderNo("TEST_ORDER_" + System.currentTimeMillis());
         dto.setAmount(new BigDecimal("100.50"));
         dto.setNotifyUrl("https://example.com/notify");
-        dto.setRedirectUrl("https://example.com/redirect");
         dto.setTimeout(600);
         dto.setRate("7.2");
         

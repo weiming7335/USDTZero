@@ -10,10 +10,10 @@ pay:
   atom: "0.01" # 支付原子颗粒度，0.01表示保留两位小数
   rate:  # 汇率，留空则自动获取，支持多种写法字符串，如~1.02：上浮2%、~0.97：下浮3%、+0.3：上涨0.3U、-0.2: 下降0.2U
   expire-time: 1200 # 交易过期时间，单位秒，默认1200秒
-  trade-is-confirmed: false # 是否交易确认，默认false
+  trade-is-confirmed: false # 区块确认，默认false
 bot:
   enable: true
-  admin-id:  # Telegram Bot管理员ID，开启后，必须设置，否则无法使用
+  admin-id:  # Telegram Bot管理员ID，开启后，必须设置，否则无法使用. 搜索 @userinfobot 查询管理ID
   token: "" # Telegram Bot Token，开启后，必须设置，否则无法使用
   group-id: "" # Telegram群组ID，设置后机器人会推送交易消息
   hostname:  #Host name (or IP address)

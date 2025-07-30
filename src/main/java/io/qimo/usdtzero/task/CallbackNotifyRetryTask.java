@@ -41,13 +41,13 @@ public class CallbackNotifyRetryTask {
             List<Order> retryOrders = orderMapper.selectList(
                     new LambdaQueryWrapper<Order>()
                             .eq(Order::getNotifyStatus, NotifyStatus.RETRY)
-                            .lt(Order::getNotifyCount, 5)
+                            .lt(Order::getNotifyCount, 6)
                             .in(Order::getStatus, OrderStatus.PAID, OrderStatus.EXPIRED)
-                            .ge(Order::getLastNotifyTime, LocalDateTime.now().minusMinutes(16))
+                            .ge(Order::getLastNotifyTime, LocalDateTime.now().minusMinutes(32))
             );
             for (Order order : retryOrders) {
                 int retryCount = order.getNotifyCount() == null ? 0 : order.getNotifyCount();
-                int maxRetryCount = 5;
+                int maxRetryCount = 6;
                 // 计算下次重试时间（0,1,2,4,8,16分钟...）
                 int[] retryIntervals = {0, 1, 2, 4, 8, 16};
                 int interval = retryCount < retryIntervals.length ? retryIntervals[retryCount] : retryIntervals[retryIntervals.length - 1];

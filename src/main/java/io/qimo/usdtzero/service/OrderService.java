@@ -179,7 +179,6 @@ public class OrderService {
             order.setSignature(request.getSignature());
             order.setRate(String.valueOf(actualRate));
             order.setNotifyUrl(request.getNotifyUrl());
-            order.setRedirectUrl(request.getRedirectUrl());
             order.setTimeout(request.getTimeout() != null ? request.getTimeout() : payProperties.getTimeout());
             order.setPaymentUrl(appProperties.getUri() + "/api/v1/order/pay/" + tradeNo);
             order.setNotifyCount(0);
