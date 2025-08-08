@@ -1,0 +1,35 @@
+server:
+  port: 23456 # 服务端口
+
+app:
+  uri: "" # 应用访问地址，前端收银台会用到，建议设置，例如：https://pay.example.com
+  auth-token: "your_test_token_here" # 认证Token，对接API时会用到，务必修改为安全值
+  sqlite-path: "data/usdtzero.db" # SQLite数据库文件，如无特殊不建议修改
+
+pay:
+  atom: "0.01" # 支付原子颗粒度，0.01表示保留两位小数
+  rate:  # 汇率，留空则自动获取，支持多种写法字符串，如~1.02：上浮2%、~0.97：下浮3%、+0.3：上涨0.3U、-0.2: 下降0.2U
+  expire-time: 1200 # 交易过期时间，单位秒，默认1200秒
+  trade-is-confirmed: false # 区块确认，默认false
+bot:
+  enable: true
+  admin-id:  # Telegram Bot管理员ID，开启后，必须设置，否则无法使用. 搜索 @userinfobot 查询管理ID
+  token: "" # Telegram Bot Token，开启后，必须设置，否则无法使用
+  group-id: "" # Telegram群组ID，设置后机器人会推送交易消息
+  hostname:  #Host name (or IP address)
+  port:
+  username:
+  password:
+
+chain:
+  trc20-enable: true #开启TRC20
+  trc20-rpc: "grpc.trongrid.io"
+  trc20-address: "" # 收款地址
+
+  spl-enable: true #开启SOL-Token
+  spl-rpc: "https://api.mainnet-beta.solana.com"
+  spl-address: "" # 收款地址，使用SPL-TOKEN地址
+
+  bep20-enable: true #开启BEP20
+  bep20-rpc: "https://bsc-dataseed.bnbchain.org/"
+  bep20-address: "" #收款地址，使用全小写地址

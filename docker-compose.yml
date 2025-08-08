@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  usdtzero:
+    container_name: usdtzero
+    build: .
+    ports:
+      - "23456:23456"
+    volumes:
+      - ./src/main/resources/application.yml:/app/application.yml
+      - ./src/main/resources/application-prod.yml:/app/application-prod.yml
+      - ./data:/app/data
+      - ./logs:/app/logs
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - TZ=Asia/Shanghai
+    restart: unless-stopped 

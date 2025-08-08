@@ -1,0 +1,40 @@
+spring:
+  profiles:
+    active: dev
+  datasource:
+    url: jdbc:sqlite:${app.sqlite-path:usdtzero.db}?journal_mode=WAL&synchronous=NORMAL&cache_size=5000&temp_store=MEMORY&busy_timeout=15000
+    driver-class-name: org.sqlite.JDBC
+    hikari:
+      maximum-pool-size: 1
+      minimum-idle: 1
+      connection-timeout: 15000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+  transaction:
+    default-timeout: 30s
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+mybatis-plus:
+  mapper-locations: classpath*:/mapper/**/*.xml
+  type-aliases-package: io.qimo.usdtzero.model
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,env,configprops
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: always
+    metrics:
+      enabled: true
+
+app:
+  name: USDTZero
+  version: v1.0.1
